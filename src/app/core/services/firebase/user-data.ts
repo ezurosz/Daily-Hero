@@ -45,6 +45,11 @@ export class UserDataService {
     return doc(this.firestore, 'users', userData.uid);
   }
 
+  async updateUserField(path: string, value: any) {
+    const ref = await this.getUserDocRef();
+    await updateDoc(ref, { [path]: value });
+  }
+
   async updateXP(xp: number, nivel: number) {
     const ref = await this.getUserDocRef();
     await updateDoc(ref, { xp, nivel });
@@ -73,92 +78,113 @@ export class UserDataService {
     });
   }
 
- // ✅ Adicionar dailies padrão
-async addDefaultDailies() {
-  const ref = await this.getUserDocRef();
+  // ✅ Toggle conclusão de uma quest sem sobrescrever tudo
+  async toggleQuestConcluida(id: string, categoria: 'daily' | 'weekly', novaConclusao: boolean) {
+    const ref = await this.getUserDocRef();
+    const snapshot = await getDoc(ref);
+    const data = snapshot.data();
 
-  const novas: Quest[] = [
-    {
-      id: crypto.randomUUID(),
-      descricao: 'Ler 10 páginas de um livro',
-      concluida: false,
-      categoria: 'daily',
-      level: 'médio',
-      ultimoCheck: null
-    },
-    {
-      id: crypto.randomUUID(),
-      descricao: 'Meditar por 10 minutos',
-      concluida: false,
-      categoria: 'daily',
-      level: 'fácil',
-      ultimoCheck: null
-    },
-    {
-      id: crypto.randomUUID(),
-      descricao: 'Tomar 2L de água',
-      concluida: false,
-      categoria: 'daily',
-      level: 'médio',
-      ultimoCheck: null
-    }
-  ];
-
-  const snapshot = await getDoc(ref);
-  const data = snapshot.data() ?? {};
-  const quests = (data['quests'] ?? {}) as { daily: Quest[] };
-  const dailyQuests = quests.daily ?? [];
-
-  await updateDoc(ref, {
-    'quests.daily': [...dailyQuests, ...novas]
-  });
-
-  console.log('[Firestore] Dailies padrão adicionadas.');
+    if (!data?.['quests']?.[categoria]) {
+  throw new Error(`Nenhuma lista encontrada para categoria ${categoria}`);
 }
 
-// ✅ Adicionar weeklies padrão
-async addDefaultWeeklies() {
-  const ref = await this.getUserDocRef();
+const questsAtualizadas = data['quests'][categoria].map((q: any) =>
+  q.id === id ? { ...q, concluida: novaConclusao } : q
+);
 
-  const novas: Quest[] = [
-    {
-      id: crypto.randomUUID(),
-      descricao: 'Fazer 4 treinos na semana',
-      concluida: false,
-      categoria: 'weekly',
-      level: 'difícil',
-      ultimoCheck: null
-    },
-    {
-      id: crypto.randomUUID(),
-      descricao: 'Evitar açúcar por 5 dias',
-      concluida: false,
-      categoria: 'weekly',
-      level: 'médio',
-      ultimoCheck: null
-    },
-    {
-      id: crypto.randomUUID(),
-      descricao: 'Ler 50 páginas de um livro',
-      concluida: false,
-      categoria: 'weekly',
-      level: 'médio',
-      ultimoCheck: null
-    }
-  ];
 
-  const snapshot = await getDoc(ref);
-  const data = snapshot.data() ?? {};
-  const quests = (data['quests'] ?? {}) as { weekly: Quest[] };
-  const weeklyQuests = quests.weekly ?? [];
+    await updateDoc(ref, {
+      [`quests.${categoria}`]: questsAtualizadas
+    });
 
-  await updateDoc(ref, {
-    'quests.weekly': [...weeklyQuests, ...novas]
-  });
+    console.log(`✅ Quest ${id} atualizada para concluida = ${novaConclusao}`);
+  }
 
-  console.log('[Firestore] Weeklies padrão adicionadas.');
-}
+  // ✅ Adicionar dailies padrão
+  async addDefaultDailies() {
+    const ref = await this.getUserDocRef();
 
+    const novas: Quest[] = [
+      {
+        id: crypto.randomUUID(),
+        descricao: 'Ler 10 páginas de um livro',
+        concluida: false,
+        categoria: 'daily',
+        level: 'médio',
+        ultimoCheck: null
+      },
+      {
+        id: crypto.randomUUID(),
+        descricao: 'Meditar por 10 minutos',
+        concluida: false,
+        categoria: 'daily',
+        level: 'fácil',
+        ultimoCheck: null
+      },
+      {
+        id: crypto.randomUUID(),
+        descricao: 'Tomar 2L de água',
+        concluida: false,
+        categoria: 'daily',
+        level: 'médio',
+        ultimoCheck: null
+      }
+    ];
+
+    const snapshot = await getDoc(ref);
+    const data = snapshot.data() ?? {};
+    const quests = (data['quests'] ?? {}) as { daily: Quest[] };
+    const dailyQuests = quests.daily ?? [];
+
+    await updateDoc(ref, {
+      'quests.daily': [...dailyQuests, ...novas]
+    });
+
+    console.log('[Firestore] Dailies padrão adicionadas.');
+  }
+
+  // ✅ Adicionar weeklies padrão
+  async addDefaultWeeklies() {
+    const ref = await this.getUserDocRef();
+
+    const novas: Quest[] = [
+      {
+        id: crypto.randomUUID(),
+        descricao: 'Fazer 4 treinos na semana',
+        concluida: false,
+        categoria: 'weekly',
+        level: 'difícil',
+        ultimoCheck: null
+      },
+      {
+        id: crypto.randomUUID(),
+        descricao: 'Evitar açúcar por 5 dias',
+        concluida: false,
+        categoria: 'weekly',
+        level: 'médio',
+        ultimoCheck: null
+      },
+      {
+        id: crypto.randomUUID(),
+        descricao: 'Ler 50 páginas de um livro',
+        concluida: false,
+        categoria: 'weekly',
+        level: 'médio',
+        ultimoCheck: null
+      }
+    ];
+
+    const snapshot = await getDoc(ref);
+    const data = snapshot.data() ?? {};
+    const quests = (data['quests'] ?? {}) as { weekly: Quest[] };
+    const weeklyQuests = quests.weekly ?? [];
+
+    await updateDoc(ref, {
+      'quests.weekly': [...weeklyQuests, ...novas]
+    });
+
+    console.log('[Firestore] Weeklies padrão adicionadas.');
+  }
 
   async getUserData() {
     const ref = await this.getUserDocRef();
