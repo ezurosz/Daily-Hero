@@ -1,0 +1,164 @@
+<div class="dashboard-wrapper">
+  <button mat-raised-button color="warn" (click)="logout()">Logout</button>
+
+  <!-- TOPO DA DASHBOARD -->
+  <div class="dashboard-top">
+ <mat-card>
+  <div class="perfil-capa">
+    <img src="https://i.imgur.com/upVYuFI.jpeg" alt="Avatar" />
+  </div>
+
+  <div class="perfil-info">
+    <h2>LEVEL <span class="highlight">{{ nivelAtual }}</span></h2>
+    <p>Classe: <span class="rank">E-Rank</span></p>
+    <!-- <p>Missões concluídas: <strong>72</strong></p> -->
+    <p class="status">
+      Status:
+      <span matTooltip="XP ganho reduzido em 10% enquanto o debuff estiver ativo." class="debuff">
+        Com Debuff
+      </span>
+    </p>
+  </div>
+  <!-- Achievements -->
+<div class="achievements-container">
+  <h3>🏆 Conquistas</h3>
+  <div class="achievements-grid">
+    <div class="achievement" *ngFor="let badge of badges">
+      <div class="diamond-background">
+        <div class="badge-icon"></div>
+      </div>
+      <div class="badge-labels">
+        <p class="badge-title">{{ badge.title }}</p>
+        <p class="badge-subtitle">{{ badge.subtitle }}</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+</mat-card>
+
+    <mat-card class="card xp">
+  <div class="xp-header">
+   <!--  <h2>Bem-vindo(a), Herói!</h2> -->
+    <div class="status-bar">
+      <p><strong>Nível:</strong> {{ nivelAtual }}</p>
+      <p><strong>XP:</strong> {{ xpAtual }} / {{ xpParaProximoNivel }}</p>
+      <mat-progress-bar mode="determinate" [value]="progressoXP"></mat-progress-bar>
+    </div>
+    <div class="radar-container">
+      <canvas baseChart [data]="chartData" [type]="'radar'" [options]="chartOptions"></canvas>
+    </div>
+  </div>
+
+  <div class="atributos-limpo">
+  <h3>📊 Atributos Detalhados</h3>
+  <ul class="atributos-lista">
+    <li><span class="atributo-nome">Força</span><span class="atributo-valor">65</span></li>
+    <li><span class="atributo-nome">Destreza</span><span class="atributo-valor">59</span></li>
+    <li><span class="atributo-nome">Inteligência</span><span class="atributo-valor">90</span></li>
+    <li><span class="atributo-nome">Constituição</span><span class="atributo-valor">81</span></li>
+    <li><span class="atributo-nome">Carisma</span><span class="atributo-valor">56</span></li>
+    <li><span class="atributo-nome">Sabedoria</span><span class="atributo-valor">55</span></li>
+  </ul>
+</div>
+
+</mat-card>
+
+
+    <mat-card class="card status-card">
+      <h3>📅 Tarefas Diárias</h3>
+      <mat-selection-list>
+        <mat-list-option>Treinar</mat-list-option>
+        <mat-list-option>Beber 2L de água</mat-list-option>
+        <mat-list-option>Comer todas as refeições</mat-list-option>
+      </mat-selection-list>
+
+      <h3>📆 Tarefas Semanais</h3>
+      <mat-selection-list>
+        <mat-list-option>Limpar armário de suplementos</mat-list-option>
+        <mat-list-option>Atualizar metas da semana</mat-list-option>
+      </mat-selection-list>
+    </mat-card>
+  </div>
+
+  <!-- SEGUNDA LINHA: Alimentação / Hidratação / Treinos -->
+  <div class="dashboard-middle">
+    <mat-card class="card refeicoes">
+      <h3>🍽️ Refeições</h3>
+      <mat-selection-list>
+        <mat-list-option *ngFor="let refeicao of refeicoes" [selected]="refeicao.feita" (click)="toggleRefeicao(refeicao)">
+          {{refeicao.nome}}
+        </mat-list-option>
+      </mat-selection-list>
+      <a routerLink="/refeicoes-cadastro" class="link">Gerenciar refeições</a>
+    </mat-card>
+
+    <mat-card class="card agua">
+      <h3>💧 Consumo de Água</h3>
+      <mat-selection-list>
+        <mat-list-option *ngFor="let litro of litros; let i = index" [selected]="consumoAgua[i]" (click)="toggleAgua(i)">
+          +1L
+        </mat-list-option>
+      </mat-selection-list>
+    </mat-card>
+
+    <mat-card class="card treinos">
+      <h3>Treinos</h3>
+      <p>Selecione o treino feito hoje ({{ diaAtual }}):</p>
+      <div class="treino-buttons">
+        <button mat-raised-button *ngFor="let treino of treinos" color="primary"
+                [disabled]="treinoPorDia[diaAtual] === treino"
+                [class.active]="treinoPorDia[diaAtual] === treino"
+                (click)="marcarTreino(treino)">
+          {{ treino }}
+        </button>
+      </div>
+      <h3>Treinos feitos na semana:</h3>
+      <ul>
+        <li *ngFor="let dia of diasSemana">
+          <strong>{{ dia }}: </strong>
+          <span *ngIf="treinoFeitoNoDia(dia); else nenhumTreino">{{ treinoFeitoNoDia(dia) }}</span>
+          <ng-template #nenhumTreino><em> Sem treino</em></ng-template>
+        </li>
+      </ul>
+    </mat-card>
+  </div>
+
+  <!-- HISTÓRICO DE XP -->
+  <div class="dashboard-bottom">
+    <mat-card class="card historico">
+      <h3>📈 Histórico de XP</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>XP Ganha</th>
+            <th>Cálculo</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let xp of xpHistorico">
+            <td>{{ xp.data }}</td>
+            <td>{{ xp.ganho }} XP</td>
+            <td>
+              {{ xp.bruto }}
+              <span [ngStyle]="{ color: xp.modificador < 0 ? '#f44336' : xp.modificador > 0 ? '#4caf50' : '#aaa' }">
+                {{ xp.modificador >= 0 ? '+' : '' }}{{ xp.modificador }}
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </mat-card>
+  </div>
+  <!-- XP FLUTUANTE -->
+<div class="xp-float" *ngIf="mostrarXpTemporario">
+  +{{ xpGanhoTemporario }} XP
+</div>
+
+<!-- LEVEL UP -->
+<div class="level-up-banner" *ngIf="mostrarLevelUp">
+  🌟 LEVEL UP! Agora você é nível {{ nivelAtual }}!
+</div>
+
+</div>

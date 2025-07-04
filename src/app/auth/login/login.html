@@ -1,0 +1,8 @@
+<div class="login-wrapper">
+  <h1>Daily Hero</h1>
+  <p>Entre com sua conta do Google para continuar</p>
+
+  <button (click)="loginWithGoogle()" [disabled]="loading">
+  {{ loading ? 'Entrando...' : 'Entrar com Google' }}
+</button>
+</div>
