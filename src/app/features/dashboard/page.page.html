@@ -6,7 +6,7 @@
   <div class="dashboard-top">
     <mat-card>
       <div class="perfil-capa">
-        <img src="https://i.imgur.com/upVYuFI.jpeg" alt="Avatar" />
+        <img src="https://i.imgur.com/y8JLOVP.png" alt="Avatar" />
       </div>
 
       <div class="perfil-info">
@@ -63,24 +63,25 @@
       </div>
     </mat-card>
 
-    <!-- Quests -->
+    <!-- Huntings -->
     <mat-card class="card status-card">
-  <h3>📅 Tarefas Diárias</h3>
+      <h3>Quadro de caçadas</h3>
+  <h3>📅 Diárias</h3>
   <mat-selection-list>
     <mat-list-option
-      *ngFor="let quest of dailyQuests"
+      *ngFor="let quest of dailyHuntings"
       [selected]="quest.done"
-      (click)="toggleDailyQuest(quest)">
+      (click)="toggleDailyHunting(quest)">
       {{ quest.nome }}
     </mat-list-option>
   </mat-selection-list>
 
-  <h3>📆 Tarefas Semanais</h3>
+  <h3>📆 Semanais</h3>
   <mat-selection-list>
     <mat-list-option
-      *ngFor="let quest of weeklyQuests"
+      *ngFor="let quest of weeklyHuntings"
       [selected]="quest.done"
-      (click)="toggleWeeklyQuest(quest)">
+      (click)="toggleWeeklyHunting(quest)">
       {{ quest.nome }}
     </mat-list-option>
   </mat-selection-list>
@@ -90,25 +91,38 @@
   <!-- MEIO -->
   <div class="dashboard-middle">
     <!-- Refeições -->
-    <mat-card class="card refeicoes">
-      <h3>🍽️ Refeições</h3>
-      <mat-selection-list>
-        <mat-list-option *ngFor="let refeicao of refeicoes" [selected]="refeicao.feita" (click)="toggleRefeicao(refeicao)">
-          {{ refeicao.nome }}
-        </mat-list-option>
-      </mat-selection-list>
-      <a routerLink="/refeicoes-cadastro" class="link">Gerenciar refeições</a>
-    </mat-card>
+    <!-- Dailies -->
+<mat-card class="card dailies">
+  <h3>📜 Missões Diárias</h3>
+  <mat-selection-list>
+    <mat-list-option
+      *ngFor="let quest of dailyQuests"
+      [selected]="quest.concluida"
+      (click)="toggleDailyQuest(quest)"
+    >
+      {{ quest.descricao }}
+    </mat-list-option>
+  </mat-selection-list>
+</mat-card>
 
-    <!-- Água -->
-    <mat-card class="card agua">
-      <h3>💧 Consumo de Água</h3>
-      <mat-selection-list>
-        <mat-list-option *ngFor="let litro of litros; let i = index" [selected]="consumoAgua[i]" (click)="toggleAgua(i)">
-          +1L
-        </mat-list-option>
-      </mat-selection-list>
-    </mat-card>
+    <!-- Refeições + Água -->
+<mat-card class="card refeicoes-agua">
+  <h3>🍽️ Refeições</h3>
+  <mat-selection-list>
+    <mat-list-option *ngFor="let refeicao of refeicoes" [selected]="refeicao.feita" (click)="toggleRefeicao(refeicao)">
+      {{ refeicao.nome }}
+    </mat-list-option>
+  </mat-selection-list>
+
+  <h3>💧 Consumo de Água</h3>
+  <mat-selection-list>
+    <mat-list-option *ngFor="let litro of litros; let i = index" [selected]="consumoAgua[i]" (click)="toggleAgua(i)">
+      +1L
+    </mat-list-option>
+  </mat-selection-list>
+
+  <a routerLink="/refeicoes-cadastro" class="link">Gerenciar refeições</a>
+</mat-card>
 
     <!-- Treino -->
     <mat-card class="card treinos">

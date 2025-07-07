@@ -1,7 +1,6 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { UserDataService } from '../../core/services/firebase/user-data';
-import { getDoc } from '@angular/fire/firestore';
-import { updateDoc } from '@angular/fire/firestore';
+import { getDoc, updateDoc } from '@angular/fire/firestore';
 
 @Component({
   selector: 'app-xp-teste',
@@ -35,46 +34,41 @@ export class XpTesteComponent implements OnInit {
 
   async executarTestes() {
     try {
-      await this.userData.updateXP(120, 2);
-      console.log('✅ XP e nível atualizados');
+      // XP
+     /*  await this.userData.adicionarXP(120);
+      console.log('✅ XP adicionada ao dia atual'); */
+      
+      // Quests
+      await this.userData.addDefaultDailyQuests();
+      console.log('✅ Quest templates adicionados');
 
-      await this.userData.setWorkoutForToday('Treino A');
-      console.log('✅ Treino salvo');
+      await this.userData.addDefaultHuntingQuests();
+      console.log('✅ Quests do dia geradas');
 
-      await this.userData.setWaterToday(2);
-      console.log('✅ Consumo de água salvo');
+      // Treino
+      /* await this.userData.marcarTreinoNoDia('Treino A');
+      console.log('✅ Treino salvo para hoje'); */
 
-      await this.userData.addDefaultDailies();
-      await this.userData.addDefaultWeeklies();
-      console.log('✅ Dailies e Weeklies cadastradas');
+      // Água
+    /*   await this.userData.marcarAguaNoDia(2);
+      console.log('✅ Consumo de água salvo'); */
 
-      await this.addDefaultMeals();
-      console.log('✅ Refeições cadastradas');
+      // Refeições no documento do DIA (não mais no documento principal)
+      /* await this.userData.marcarTodasRefeicoesFalse();
+      console.log('✅ Refeições adicionadas no documento do dia'); */
 
-      await this.addDefaultWorkouts();
-      console.log('✅ Treinos cadastrados');
-
+      // Lista de treinos permanece no doc principal
+      /* await this.addDefaultWorkoutList();
+      console.log('✅ Lista de treinos adicionada no documento do usuário'); */
     } catch (error) {
       console.error('❌ Erro ao executar testes:', error);
     }
   }
 
-  async addDefaultMeals() {
+  async addDefaultWorkoutList() {
     const ref = await this.userData.getUserDocRef();
     await updateDoc(ref, {
-      meals: {
-        'Café da Manhã': false,
-        'Almoço': false,
-        'Lanche': false,
-        'Jantar': false
-      }
-    });
-  }
-
-  async addDefaultWorkouts() {
-    const ref = await this.userData.getUserDocRef();
-    await updateDoc(ref, {
-      workoutList: ['Treino A', 'Treino B', 'Treino C', 'Treino D']
+      workoutList: ['Treino A', 'Treino B', 'Treino C', 'Treino D'],
     });
   }
 }

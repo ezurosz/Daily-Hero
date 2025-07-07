@@ -1,12 +1,9 @@
-// models/quest.model.ts
-
-export type QuestLevel = 'fácil' | 'médio' | 'difícil' | 'insano';
-
 export interface Quest {
   id: string;
-  descricao: string;
+  categoria: 'daily' | 'weekly';     // antes estava como 'categoria' nos templates
+  descricao: string;                // ✅ adicionado
+  level: 'fácil' | 'médio' | 'difícil' | 'insano'; // ✅ adicionado
+  vencimento: string;
   concluida: boolean;
-  categoria: 'daily' | 'weekly';
-  level: QuestLevel;
-  ultimoCheck: string | null; // formato: 'YYYY-MM-DD'
+  checkDate: string | null;
 }

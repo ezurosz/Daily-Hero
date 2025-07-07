@@ -39,6 +39,9 @@ export class PagePage implements OnInit {
 
   nivelAtual = 1;
   xpAtual = 0;
+  diaAtual = '';
+  diasSemana = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+
   treinoPorDia: Record<string, string | null> = {
     'Domingo': null,
     'Segunda': null,
@@ -48,21 +51,24 @@ export class PagePage implements OnInit {
     'Sexta': null,
     'Sábado': null,
   };
+
   refeicoes: { nome: string; feita: boolean }[] = [];
   consumoAgua: boolean[] = [false, false, false, false];
   litros = [1, 2, 3, 4];
-  xpHistorico: { data: string; ganho: number; bruto: number; modificador: number }[] = [];
+  treinos = ['Treino A', 'Treino B', 'Treino C', 'Treino D', 'Descanso'];
 
- dailyQuests: { id: string; nome: string; done: boolean; level: string; ultimoCheck: string | null }[] = [];
-weeklyQuests: { id: string; nome: string; done: boolean; level: string; ultimoCheck: string | null }[] = [];
-
+  dailyHuntings: { id: string; nome: string; done: boolean; level: string; ultimoCheck: string | null }[] = [];
+  weeklyHuntings: { id: string; nome: string; done: boolean; level: string; ultimoCheck: string | null }[] = [];
+  dailyQuests: any[] = [];
 
   mostrarXpTemporario = false;
   xpGanhoTemporario = 0;
   mostrarLevelUp = false;
-  diaAtual = '';
-  diasSemana = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
-  treinos = ['Treino A', 'Treino B', 'Treino C', 'Treino D', 'Descanso'];
+
+  xpHistorico: { data: string; ganho: number; bruto: number; modificador: number }[] = [
+    { data: '01/07', ganho: 50, bruto: 55, modificador: -5 },
+    { data: '30/06', ganho: 80, bruto: 90, modificador: -10 },
+  ];
 
   badges = [
     { title: 'Somnia', subtitle: 'Scout' },
@@ -79,10 +85,14 @@ weeklyQuests: { id: string; nome: string; done: boolean; level: string; ultimoCh
     { title: 'Somnia', subtitle: 'Whale' },
   ];
 
-  ngOnInit() {
-    this.atualizarDiaAtual();
-    this.carregarDadosDoUsuario();
-  }
+  async ngOnInit() {
+  this.atualizarDiaAtual();
+  await this.userDataService.instanciarDailiesFixas();      // ✅ Cria as dailies fixas no dia
+  await this.userDataService.carregarDailyQuests();         // ✅ Carrega dailies do dia (separado)
+  await this.carregarDadosDoUsuario();                      // ✅ Aqui já vem os huntingQuests junto
+  this.dailyQuests = this.userDataService.dailyQuests;     // Apenas para exibir as dailies fixas no painel
+}
+
 
   atualizarDiaAtual() {
     const hoje = new Date();
@@ -91,55 +101,50 @@ weeklyQuests: { id: string; nome: string; done: boolean; level: string; ultimoCh
   }
 
   async carregarDadosDoUsuario() {
-   const dados = await this.userDataService.getUserData();
+  const hoje = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+  console.log(hoje);
+  const dados = await this.userDataService.getDiaData(hoje);
   if (!dados) return;
 
-  this.nivelAtual = dados['nivel'];
-  this.xpAtual = dados['xp'];
+  this.nivelAtual = dados.nivelNoDia;
+  this.xpAtual = dados.xpGanho;
 
-  // Refeições
-  const refeicoesRaw = dados['meals'] as Record<string, boolean>;
-  this.refeicoes = Object.entries(refeicoesRaw || {}).map(([nome, feita]) => ({ nome, feita: Boolean(feita) }));
-
-  // Água
-  const hoje = new Date().toISOString().split('T')[0];
-  const litrosHoje = (dados['waterIntake'] as Record<string, number>)?.[hoje] || 0;
-  this.consumoAgua = this.litros.map((litro) => litro <= litrosHoje);
-
-  // Treinos
-  this.treinoPorDia = dados['workouts'] as Record<string, string>;
-
-  // ✅ QUESTS - CORREÇÃO AQUI
-  const quests = dados['quests'] as any;
-  this.dailyQuests = (quests?.daily || []).map((q: any) => ({
-    id: q.id,
-    nome: q.descricao,
-    done: q.concluida,
-    level: q.level,
-    ultimoCheck: q.ultimoCheck,
+  this.refeicoes = Object.entries(dados.meals || {}).map(([nome, feita]) => ({
+    nome,
+    feita: Boolean(feita),
   }));
 
-  this.weeklyQuests = (quests?.weekly || []).map((q: any) => ({
-    id: q.id,
-    nome: q.descricao,
-    done: q.concluida,
-    level: q.level,
-    ultimoCheck: q.ultimoCheck,
-  }));
+  this.consumoAgua = this.litros.map((litro) => litro <= (dados.waterIntake || 0));
+  this.treinoPorDia[this.diaAtual] = dados.workout;
 
-  // XP Histórico (mock)
-  this.xpHistorico = [
-    { data: '01/07', ganho: 50, bruto: 55, modificador: -5 },
-    { data: '30/06', ganho: 80, bruto: 90, modificador: -10 },
-  ];
+  // ✅ Usar diretamente os dados carregados do Firestore, e não do service
+  const todasHuntings = dados.huntingQuests || [];
 
+  this.dailyHuntings = todasHuntings
+    .filter(q => q.categoria === 'daily')
+    .map(q => ({
+      id: q.id,
+      nome: q.descricao,
+      done: q.concluida,
+      level: q.level,
+      ultimoCheck: q.checkDate,
+    }));
 
-  console.log('[REFEIÇÕES]', this.refeicoes);
-  console.log('[ÁGUA]', litrosHoje);
-  console.log('[DAILY QUESTS]', this.dailyQuests);
-  console.log('[WEEKLY QUESTS]', this.weeklyQuests);
-  console.log('[TREINOS]', this.treinoPorDia);
-  }
+  this.weeklyHuntings = todasHuntings
+    .filter(q => q.categoria === 'weekly')
+    .map(q => ({
+      id: q.id,
+      nome: q.descricao,
+      done: q.concluida,
+      level: q.level,
+      ultimoCheck: q.checkDate,
+    }));
+
+  console.log('[✅ Huntings carregadas]:', todasHuntings);
+  console.log('[✅ Daily]:', this.dailyHuntings);
+  console.log('[✅ Weekly]:', this.weeklyHuntings);
+}
+
 
   get xpParaProximoNivel(): number {
     return Math.floor(100 + this.nivelAtual * 80);
@@ -153,48 +158,53 @@ weeklyQuests: { id: string; nome: string; done: boolean; level: string; ultimoCh
     return this.treinoPorDia?.[dia] ?? null;
   }
 
-  marcarTreino(treino: string) {
+  async marcarTreino(treino: string) {
   const treinoAtual = this.treinoPorDia[this.diaAtual];
 
   if (treinoAtual === treino) {
     this.treinoPorDia[this.diaAtual] = null;
-    this.userDataService.updateUserField(`workouts.${this.diaAtual}`, null);
+    await this.userDataService.marcarTreinoNoDia(null);
   } else {
     this.treinoPorDia[this.diaAtual] = treino;
-    this.userDataService.updateUserField(`workouts.${this.diaAtual}`, treino);
+    await this.userDataService.marcarTreinoNoDia(treino);
     this.ganharXP(30);
   }
 }
 
-  toggleRefeicao(refeicao: { nome: string; feita: boolean }) {
-  refeicao.feita = !refeicao.feita;
-  this.ganharXP(refeicao.feita ? 10 : -10);
 
-  this.userDataService.updateUserField(`meals.${refeicao.nome}`, refeicao.feita);
-}
+  async toggleRefeicao(refeicao: { nome: string; feita: boolean }) {
+    refeicao.feita = !refeicao.feita;
+    this.ganharXP(refeicao.feita ? 10 : -10);
 
-  toggleAgua(index: number) {
-  this.consumoAgua[index] = !this.consumoAgua[index];
+    const refeicoesAtualizadas: Record<string, boolean> = {};
+    this.refeicoes.forEach(r => refeicoesAtualizadas[r.nome] = r.feita);
+    await this.userDataService.atualizarRefeicoes(refeicoesAtualizadas);
+  }
 
-  const litrosConsumidos = this.consumoAgua.filter(v => v).length;
-  const hoje = new Date().toISOString().split('T')[0];
-  this.userDataService.updateUserField(`waterIntake.${hoje}`, litrosConsumidos);
+  async toggleAgua(index: number) {
+    this.consumoAgua[index] = !this.consumoAgua[index];
+    const litrosConsumidos = this.consumoAgua.filter(v => v).length;
+    this.ganharXP(this.consumoAgua[index] ? 5 : -5);
+    await this.userDataService.marcarAguaNoDia(litrosConsumidos);
+  }
 
-  this.ganharXP(this.consumoAgua[index] ? 5 : -5);
-}
-toggleDailyQuest(quest: any) {
+  toggleDailyHunting(quest: any) {
+    quest.done = !quest.done;
+    this.userDataService.toggleConclusaoHunting(quest.id, quest.done);
+    this.ganharXP(quest.done ? 20 : -20);
+  }
+
+  toggleWeeklyHunting(quest: any) {
+    quest.done = !quest.done;
+    this.userDataService.toggleConclusaoHunting(quest.id, quest.done);
+    this.ganharXP(quest.done ? 40 : -40);
+  }
+
+  toggleDailyQuest(quest: any) {
   quest.done = !quest.done;
-  this.userDataService.toggleQuestConcluida(quest.id, 'daily', quest.done);
-  this.ganharXP(quest.done ? 20 : -20);
+  this.userDataService.toggleConclusaoQuest(quest.id, quest.done);
+  this.ganharXP(quest.done ? 15 : -15);
 }
-
-toggleWeeklyQuest(quest: any) {
-  quest.done = !quest.done;
-  this.userDataService.toggleQuestConcluida(quest.id, 'weekly', quest.done);
-  this.ganharXP(quest.done ? 40 : -40);
-}
-
-
 
   ganharXP(quantidade: number) {
     const nivelAntes = this.nivelAtual;
