@@ -1,9 +1,9 @@
-import { DailyQuest } from './daily-quest.model';
+import { FixedQuest } from './fixed-quest.model';
 
 export interface Usuario {
   nivel: number;
   xp: number;
-  questTemplates: DailyQuest[];
+  questTemplates: FixedQuest[];
   workoutList: string[];
   xpHistory: {
     lastEntry: string | null;

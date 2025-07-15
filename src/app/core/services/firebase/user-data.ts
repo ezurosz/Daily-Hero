@@ -16,7 +16,7 @@ import {
   query,
 } from '@angular/fire/firestore';
 import { Auth } from '@angular/fire/auth';
-import { DailyQuest } from '../../models/daily-quest.model';
+import { FixedQuest } from '../../models/fixed-quest.model';
 import { Quest } from '../../models/quest.model';
 import { DiaData } from '../../models/dia-data.model';
 import { firstValueFrom } from 'rxjs';
@@ -35,6 +35,11 @@ function questIgual(
 
 @Injectable({ providedIn: 'root' })
 export class UserDataService {
+
+  dailyFixedQuests: FixedQuest[] = [];
+  weeklyFixedQuests: FixedQuest[] = [];
+  dailyHuntingQuests: Quest[] = [];
+  weeklyHuntingQuests: Quest[] = [];
   private firestore = inject(Firestore);
   private auth = inject(Auth);
 
@@ -50,32 +55,7 @@ export class UserDataService {
     if (!userData) throw new Error('Usuário não autenticado');
     return doc(this.firestore, `users/${userData.uid}/dias/${date}`);
   }
-
-  // 📌 Inicialização do Usuário ============================
-// 📌 Inicialização do Usuário ============================
-async initUserDataIfNeeded() {
-  const user = this.auth.currentUser;
-  if (!user) return;
-
-  const userRef = await this.getUserDocRef();
-  const snapshot = await getDoc(userRef);
-
-  // 🟢 Criação do documento principal do usuário
-  if (!snapshot.exists()) {
-    await setDoc(userRef, {
-      nivel: 1,
-      xp: 0,
-      dailyQuests: [] as DailyQuest[],
-      workoutList: ['Treino A', 'Treino B', 'Treino C', 'Treino D'],
-      xpHistory: { lastEntry: null },
-    });
-
-    console.log('[✅ Firestore] Novo usuário inicializado.');
-  } else {
-    console.log('[ℹ️ Firestore] Documento do usuário já existe.');
-  }
-
-  // 🟠 Criação do documento diário inicial (subcoleção), sem quests
+  async criarDiaSeNaoExistir(): Promise<void> {
   const hoje = this.dataHoje();
   const diaRef = await this.getDiaDocRef(hoje);
   const diaSnap = await getDoc(diaRef);
@@ -84,102 +64,227 @@ async initUserDataIfNeeded() {
     const novoDia: DiaData = {
       nivelNoDia: 1,
       xpGanho: 0,
-      meals: {
-        'Café da Manhã': false,
-        'Almoço': false,
-        'Lanche': false,
-        'Jantar': false,
-      },
+      meals: [
+        {
+          nome: 'Café da Manhã',
+          concluida: false,
+          cardapio: `• 40g de aveia em flocos finos
+• 1 scoop de whey com água
+• 1 banana média (100g)
+• 1 colher de sopa de pasta de amendoim (15g)
+• 1 colher chá de chia (5g)
+• Canela a gosto`,
+          kcal: 475,
+          carboidrato: 49,
+          proteina: 33,
+          gordura: 10,
+        },
+        {
+          nome: 'Almoço',
+          concluida: false,
+          cardapio: `• 160g arroz branco cozido
+• 200g frango grelhado
+• 1 ovo inteiro
+• 130g legumes refogados (abobrinha, cenoura, etc)
+• 12g azeite no preparo`,
+          kcal: 783,
+          carboidrato: 62,
+          proteina: 52,
+          gordura: 25,
+        },
+        {
+          nome: 'Lanche',
+          concluida: false,
+          cardapio: `• 1 Barrinha Protein Crisp 45g`,
+          kcal: 180,
+          carboidrato: 17,
+          proteina: 15,
+          gordura: 7,
+        },
+        {
+          nome: 'Jantar',
+          concluida: false,
+          cardapio: `• 130g arroz branco cozido
+• 140g carne moída magra (ou frango)
+• 1 ovo inteiro
+• 130g legumes cozidos/refogados
+• 12g azeite`,
+          kcal: 653,
+          carboidrato: 53,
+          proteina: 34,
+          gordura: 27,
+        },
+      ],
       waterIntake: 0,
       workout: null,
-      huntingQuests: [],
-      dailyQuests: [],
+      dailyHuntingQuests: [] as Quest[],
+      weeklyHuntingQuests: [] as Quest[],
+      dailyQuests: [] as Quest[],   // inicializa vazio
+      weeklyQuests: [] as Quest[],  // inicializa vazio
     };
 
     await setDoc(diaRef, novoDia);
-    console.log('[🟢 Firestore] Documento diário criado vazio (sem quests).');
-  } else {
-    console.log('[ℹ️ Firestore] Documento do dia já existia.');
+    console.log('[📅] Documento diário criado automaticamente.');
   }
 }
+
+
+
+  // 📌 Inicialização do Usuário ============================
+async initUserDataIfNeeded() {
+  const user = this.auth.currentUser;
+  if (!user) return;
+
+  const userRef = await this.getUserDocRef();
+  const snapshot = await getDoc(userRef);
+
+  // Se não existir, cria documento principal com fixedQuests diário/semana
+  if (!snapshot.exists()) {
+  await setDoc(userRef, {
+    nivel: 1,
+    xp: 0,
+    fixedQuests: {
+      daily: [] as FixedQuest[],
+      weekly: [] as FixedQuest[],
+    },
+    workoutList: ['Treino A', 'Treino B', 'Treino C', 'Treino D'],
+    xpHistory: { lastEntry: null },
+  });
+  console.log('[✅ Firestore] Novo usuário inicializado.');
+}
+ else {
+    console.log('[ℹ️ Firestore] Documento do usuário já existe.');
+  }
+}
+
+
 
   // 📘 Lógica: Daily Quests ================================
-  dailyQuests: DailyQuest[] = [];
+  dailyQuests: FixedQuest[] = [];
+  weeklyQuests: FixedQuest[] = [];
 
-  async addDefaultDailyQuests() {
-    const ref = await this.getUserDocRef();
-    const novas: DailyQuest[] = [
-      { id: crypto.randomUUID(), descricao: 'Assistir o jogo 17:00', categoria: 'daily', level: 'médio', fixa: true, concluida: false },
-      { id: crypto.randomUUID(), descricao: 'Evitar esforço no braço', categoria: 'weekly', level: 'médio', fixa: true, concluida: false },
-      { id: crypto.randomUUID(), descricao: 'Meditar 10 min', categoria: 'daily', level: 'fácil', fixa: false, concluida: false },
-      { id: crypto.randomUUID(), descricao: 'Fazer mobilidade pernas e quadril', categoria: 'weekly', level: 'difícil', fixa: false, concluida: false },
-    ];
+  async addDefaultFixedQuests() {
+  const userRef = await this.getUserDocRef();
+  const snap = await getDoc(userRef);
 
-    const snapshot = await getDoc(ref);
-    const existentes = (snapshot.data()?.['dailyQuests'] ?? []) as DailyQuest[];
+  const existentesDaily = (snap.data()?.['dailyFixedQuests'] ?? []) as FixedQuest[];
+  const existentesWeekly = (snap.data()?.['weeklyFixedQuests'] ?? []) as FixedQuest[];
 
-    const novasFiltradas = novas.filter(
-      (nova) => !existentes.some((existente) => questIgual(nova, existente))
-    );
-
-    if (novasFiltradas.length > 0) {
-      await updateDoc(ref, {
-        dailyQuests: [...existentes, ...novasFiltradas],
-      });
-      console.log(`[✅] ${novasFiltradas.length} novas daily quests adicionadas.`);
-    } else {
-      console.log('[ℹ️] Nenhuma nova daily quest foi adicionada.');
+  const novasDaily: FixedQuest[] = [
+    {
+      id: crypto.randomUUID(),
+      descricao: 'Aniversário de 1 amigo',
+      categoria: 'daily',
+      level: 'fácil',
+      fixa: true,
+      tags: ['Social'],
     }
-  }
+  ];
 
-  /* async carregarDailyQuests(): Promise<void> {
-    const ref = await this.getUserDocRef();
-    const snapshot = await getDoc(ref);
-    this.dailyQuests = (snapshot.data()?.['dailyQuests'] ?? []) as DailyQuest[];
-  } */
-  async carregarDailyQuests(): Promise<void> {
-  const hoje = this.dataHoje(); // garante o formato correto
-  const ref = await this.getDiaDocRef(hoje);
-  const snapshot = await getDoc(ref);
-  this.dailyQuests = (snapshot.data()?.['dailyQuests'] ?? []) as DailyQuest[];
-  console.log('[📆] Daily quests carregadas do dia:', this.dailyQuests);
+  const novasWeekly: FixedQuest[] = [
+    {
+      id: crypto.randomUUID(),
+      descricao: 'Limpar armário',
+      categoria: 'weekly',
+      level: 'médio',
+      fixa: true,
+    }
+  ];
+
+  const toAddDaily = novasDaily.filter(n => !existentesDaily.some(e => questIgual(n,e)));
+  const toAddWeekly = novasWeekly.filter(n => !existentesWeekly.some(e => questIgual(n,e)));
+
+  if (toAddDaily.length || toAddWeekly.length) {
+    await updateDoc(userRef, {
+      'fixedQuests.daily': [...existentesDaily, ...toAddDaily],
+      'fixedQuests.weekly': [...existentesWeekly, ...toAddWeekly],
+    });
+    console.log('[✅] FixedQuests padrão adicionadas');
+  }
 }
 
 
+ async carregarFixedQuests(): Promise<void> {
+  const ref = await this.getUserDocRef();
+  const snapshot = await getDoc(ref);
+  const dados = snapshot.data();
 
-  async instanciarDailiesFixas() {
-  const diaRef = await this.getDiaDocRef(this.dataHoje());
+  this.dailyFixedQuests = (dados?.['fixedQuests']?.['daily'] ?? []) as FixedQuest[];
+  this.weeklyFixedQuests = (dados?.['fixedQuests']?.['weekly'] ?? []) as FixedQuest[];
+
+  console.log('[📌 FixedQuests carregadas]', {
+    daily: this.dailyFixedQuests,
+    weekly: this.weeklyFixedQuests,
+  });
+}
+
+
+  async instanciarFixedQuests() {
+  const hoje = this.dataHoje();
+  const diaRef = await this.getDiaDocRef(hoje);
   const diaSnap = await getDoc(diaRef);
   const diaData = diaSnap.data() ?? {};
 
-  const jaInstanciadas = (diaData['dailyQuests'] ?? []) as DailyQuest[];
+  const jaInstanciadasDaily = (diaData['dailyQuests'] ?? []) as FixedQuest[];
+  const jaInstanciadasWeekly = (diaData['weeklyQuests'] ?? []) as FixedQuest[];
 
   const userRef = await this.getUserDocRef();
   const userSnap = await getDoc(userRef);
-  const todasDailies = (userSnap.data()?.['dailyQuests'] ?? []) as DailyQuest[];
-  const fixas = todasDailies.filter((q) => q.fixa);
+  const dataUser = userSnap.data() ?? {};
 
-  const novas: DailyQuest[] = fixas.filter((fixa) => {
-    return !jaInstanciadas.some((instanciada) =>
-      fixa.descricao.trim().toLowerCase() === instanciada.descricao.trim().toLowerCase() &&
-      fixa.categoria === instanciada.categoria &&
-      fixa.level === instanciada.level
-    );
-  }).map((q) => ({
-    ...q,
+  const allDaily = (dataUser['fixedQuests']?.daily ?? []) as FixedQuest[];
+  const allWeekly = (dataUser['fixedQuests']?.weekly ?? []) as FixedQuest[];
+
+  const fixasDaily = allDaily.filter(q => q.fixa);
+  const fixasWeekly = allWeekly.filter(q => q.fixa);
+
+  const novasDaily: Quest[] = fixasDaily
+  .filter((fixa) =>
+    !jaInstanciadasDaily.some((inst) => questIgual(fixa, inst))
+  )
+  .map((q) => ({
+    id: q.id,
+    descricao: q.descricao,
+    categoria: q.categoria,
+    level: q.level,
     concluida: false,
-    checkDate: null
+    checkDate: null,
+    vencimento: this.calcularVencimento('daily'),
+    tags: q.tags ?? [],
+    expirado: false,
   }));
 
-  if (novas.length > 0) {
-    await updateDoc(diaRef, {
-      dailyQuests: [...jaInstanciadas, ...novas]
-    });
-    console.log(`[✅] ${novas.length} novas dailies fixas adicionadas ao dia.`);
+const novasWeekly: Quest[] = fixasWeekly
+  .filter((fixa) =>
+    !jaInstanciadasWeekly.some((inst) => questIgual(fixa, inst))
+  )
+  .map((q) => ({
+    id: q.id,
+    descricao: q.descricao,
+    categoria: q.categoria,
+    level: q.level,
+    concluida: false,
+    checkDate: null,
+    vencimento: this.calcularVencimento('weekly'),
+    tags: q.tags ?? [],
+    expirado: false,
+  }));
+
+
+  const atualizacoes: any = {};
+  if (novasDaily.length > 0)
+    atualizacoes['dailyQuests'] = [...jaInstanciadasDaily, ...novasDaily];
+  if (novasWeekly.length > 0)
+    atualizacoes['weeklyQuests'] = [...jaInstanciadasWeekly, ...novasWeekly];
+
+  if (Object.keys(atualizacoes).length > 0) {
+    await updateDoc(diaRef, atualizacoes);
+    console.log(`[✅] ${novasDaily.length} dailies e ${novasWeekly.length} weeklies fixas adicionadas ao dia.`);
   } else {
-    console.log('[ℹ️] Nenhuma daily fixa nova a adicionar.');
+    console.log('[ℹ️] Nenhuma fixed quest nova a instanciar no dia.');
   }
 }
+
 
 
 
@@ -189,42 +294,42 @@ async initUserDataIfNeeded() {
 async addDefaultHuntingQuests() {
   const diaRef = await this.getDiaDocRef(this.dataHoje());
   const snapshot = await getDoc(diaRef);
+  const data = snapshot.data() ?? {};
 
-  const existentes = (snapshot.data()?.['huntingQuests'] ?? []) as Quest[];
+  const existentesDaily = (data['dailyHuntingQuests'] ?? []) as Quest[];
+  const existentesWeekly = (data['weeklyHuntingQuests'] ?? []) as Quest[];
 
-  const novas: Quest[] = [
+  const novasDaily: Quest[] = [
     {
       id: crypto.randomUUID(),
-      descricao: 'Organizar ambiente de trabalho',
+      descricao: 'Rezar por 10 minutos',
       categoria: 'daily',
       level: 'médio',
       vencimento: this.calcularVencimento('daily'),
       concluida: false,
       checkDate: null,
-    },
-    {
-      id: crypto.randomUUID(),
-      descricao: 'Estudar 1 capítulo de livro',
-      categoria: 'weekly',
-      level: 'difícil',
-      vencimento: this.calcularVencimento('daily'),
-      concluida: false,
-      checkDate: null,
-    },
-    {
-      id: crypto.randomUUID(),
-      descricao: 'Planejar conteúdo da semana',
-      categoria: 'daily',
-      level: 'médio',
-      vencimento: this.calcularVencimento('weekly'),
-      concluida: false,
-      checkDate: null,
+      tags: ['Fé'],
+      expirado: false,
     },
   ];
 
-  const filtradas = novas.filter(
+  const novasWeekly: Quest[] = [
+    {
+      id: crypto.randomUUID(),
+      descricao: 'Estudar 3 horas no sábado',
+      categoria: 'weekly',
+      level: 'difícil',
+      vencimento: this.calcularVencimento('weekly'),
+      concluida: false,
+      checkDate: null,
+      tags: ['Estudo'],
+      expirado: false,
+    },
+  ];
+
+  const filtradasDaily = novasDaily.filter(
     (nova) =>
-      !existentes.some((existente) =>
+      !existentesDaily.some((existente) =>
         questIgual(
           { descricao: nova.descricao, categoria: nova.categoria, level: nova.level },
           { descricao: existente.descricao, categoria: existente.categoria, level: existente.level }
@@ -232,65 +337,128 @@ async addDefaultHuntingQuests() {
       )
   );
 
-  if (filtradas.length > 0) {
-    await updateDoc(diaRef, {
-      huntingQuests: [...existentes, ...filtradas],
-    });
-    console.log(`[🟢] ${filtradas.length} hunting quests adicionadas ao dia.`);
+  const filtradasWeekly = novasWeekly.filter(
+    (nova) =>
+      !existentesWeekly.some((existente) =>
+        questIgual(
+          { descricao: nova.descricao, categoria: nova.categoria, level: nova.level },
+          { descricao: existente.descricao, categoria: existente.categoria, level: existente.level }
+        )
+      )
+  );
+
+  const updates: any = {};
+  if (filtradasDaily.length > 0)
+    updates['dailyHuntingQuests'] = [...existentesDaily, ...filtradasDaily];
+
+  if (filtradasWeekly.length > 0)
+    updates['weeklyHuntingQuests'] = [...existentesWeekly, ...filtradasWeekly];
+
+  if (Object.keys(updates).length > 0) {
+    await updateDoc(diaRef, updates);
+    console.log(`[🟢] Hunting quests adicionadas:`, updates);
   } else {
     console.log('[ℹ️] Nenhuma nova hunting quest foi adicionada (já existiam).');
   }
 }
 
+
 async carregarHuntingQuests(): Promise<void> {
   const hoje = this.dataHoje();
-  console.log('[📅 Dia usado para hunting]', hoje);
-
   const diaRef = await this.getDiaDocRef(hoje);
   const snapshot = await getDoc(diaRef);
 
   const dados = snapshot.data();
-  console.log('[📦 Conteúdo do documento do dia]', dados);
+  if (!dados) return;
 
-  this.huntingQuests = (dados?.['huntingQuests'] ?? []) as Quest[];
-  console.log('[🎯 Hunting carregadas]', this.huntingQuests);
+  this.dailyHuntingQuests = (dados['dailyHuntingQuests'] ?? []) as Quest[];
+  this.weeklyHuntingQuests = (dados['weeklyHuntingQuests'] ?? []) as Quest[];
+
+  // ⚠️ Agenda vencimento para todas
+  this.dailyHuntingQuests.forEach(q => this.agendarExpiracao(q, 'dailyHunting'));
+  this.weeklyHuntingQuests.forEach(q => this.agendarExpiracao(q, 'weeklyHunting'));
+
+  console.log('[🎯 Hunting carregadas]', {
+    daily: this.dailyHuntingQuests,
+    weekly: this.weeklyHuntingQuests,
+  });
 }
 
-async toggleConclusaoQuest(questId: string, concluida: boolean) {
+
+
+async toggleConclusaoFixedQuest(questId: string, concluida: boolean) {
+  await this.criarDiaSeNaoExistir();
   const ref = await this.getDiaDocRef(this.dataHoje());
   const snapshot = await getDoc(ref);
   const data = snapshot.data() as DiaData;
 
-  const dailyAtualizadas = data.dailyQuests.map((q) =>
-    q.id === questId ? { ...q, concluida, checkDate: new Date().toISOString() } : q
+  // Decide se a quest é daily ou weekly
+  const isDaily = data.dailyQuests.some((q: Quest) => q.id === questId);
+  const listKey = isDaily ? 'dailyQuests' : 'weeklyQuests';
+
+  // Atualiza a quest com base no ID
+  const atualizadas = (data[listKey] as Quest[]).map((q: Quest) =>
+    q.id === questId
+      ? {
+          ...q,
+          concluida,
+          checkDate: concluida ? new Date().toISOString() : null,
+        }
+      : q
   );
 
-  await updateDoc(ref, {
-    dailyQuests: dailyAtualizadas,
-  });
+  await updateDoc(ref, { [listKey]: atualizadas });
 
-  console.log(`[✅] Daily quest ${questId} marcada como concluída: ${concluida}`);
+  const quest = atualizadas.find((q) => q.id === questId)!;
+
+  // XP com base na categoria da quest
+  let xp = 0;
+  if (quest.categoria === 'daily') xp = concluida ? 15 : -15;
+  else if (quest.categoria === 'weekly') xp = concluida ? 30 : -30;
+
+  await this.adicionarXP(xp);
+  await this.atualizarXPGlobal(xp);
+
+  console.log(`[✅] Fixed quest ${questId} atualizada. XP: ${xp}`);
 }
 
-  async toggleConclusaoHunting(questId: string, concluida: boolean) {
-    const ref = await this.getDiaDocRef(this.dataHoje());
-    const snapshot = await getDoc(ref);
-    const data = snapshot.data() as DiaData;
 
-    const huntingQuestsAtualizadas = data.huntingQuests.map((q) =>
-      q.id === questId ? { ...q, concluida, checkDate: new Date().toISOString() } : q
-    );
+ async toggleConclusaoHunting(questId: string, concluida: boolean) {
+  await this.criarDiaSeNaoExistir();
+  const ref = await this.getDiaDocRef(this.dataHoje());
+  const snapshot = await getDoc(ref);
+  const data = snapshot.data() as DiaData;
 
-    await updateDoc(ref, {
-      huntingQuests: huntingQuestsAtualizadas,
-    });
+  // Decide em qual array a quest está
+  const isDaily = data.dailyHuntingQuests.some((q: Quest) => q.id === questId);
+  const listKey = isDaily ? 'dailyHuntingQuests' : 'weeklyHuntingQuests';
 
-    console.log(`[✅] Hunting quest ${questId} marcada como concluída: ${concluida}`);
-  }
+  // Mapeia e atualiza apenas a quest clicada
+  const huntingAtualizadas = (data[listKey] as Quest[]).map((q: Quest) =>
+    q.id === questId
+      ? { ...q, concluida, checkDate: new Date().toISOString() }
+      : q
+  );
+
+  // Grava de volta no Firestore
+  await updateDoc(ref, { [listKey]: huntingAtualizadas });
+
+  // Calcula XP com base na categoria da própria quest
+  const quest = huntingAtualizadas.find((q: Quest) => q.id === questId)!;
+  let xp = 0;
+  if (quest.categoria === 'daily') xp = concluida ? 20 : -20;
+  else if (quest.categoria === 'weekly') xp = concluida ? 40 : -40;
+
+  await this.adicionarXP(xp);
+  await this.atualizarXPGlobal(xp);
+
+  console.log(`[✅] Hunting quest ${questId} atualizada. XP: ${xp}`);
+}
 
   // 🍽️ Refeições, Água, Treino, XP ========================
 
   async adicionarXP(xp: number) {
+     await this.criarDiaSeNaoExistir();
     const ref = await this.getDiaDocRef(this.dataHoje());
     const snapshot = await getDoc(ref);
     const data = snapshot.data();
@@ -303,41 +471,192 @@ async toggleConclusaoQuest(questId: string, concluida: boolean) {
     console.log(`[✨] XP atualizada: ${xpAtual} ➜ ${xpAtual + xp}`);
   }
 
+  async atualizarXPGlobal(valor: number) {
+  const userRef = await this.getUserDocRef();
+  const snapshot = await getDoc(userRef);
+  const xpAtual = snapshot.data()?.['xp'] ?? 0;
+
+  await updateDoc(userRef, {
+    xp: xpAtual + valor
+  });
+
+  console.log(`[🔥] XP global atualizada: ${xpAtual} ➜ ${xpAtual + valor}`);
+}
+
+
   async marcarTreinoNoDia(nome: string | null) {
-    const ref = await this.getDiaDocRef(this.dataHoje());
-    await updateDoc(ref, { workout: nome });
-  }
+  await this.criarDiaSeNaoExistir();
+  const ref = await this.getDiaDocRef(this.dataHoje());
+  const snapshot = await getDoc(ref);
+  const data = snapshot.data() as DiaData;
 
-  async marcarAguaNoDia(litros: number) {
+  const treinoAnterior = data.workout; // valor ANTES da alteração
+
+  await updateDoc(ref, { workout: nome });
+
+  // Só ganha XP se o treino anterior era null, e o novo nome não for null
+  if (treinoAnterior === null && nome !== null) {
+    const xp = 30;
+    await this.adicionarXP(xp);
+    await this.atualizarXPGlobal(xp);
+    console.log(`[🏋️] Primeiro treino do dia registrado: "${nome}". XP: ${xp}`);
+  } else {
+    console.log(`[🏋️] Treino atualizado para: "${nome}". Sem alteração de XP.`);
+  }
+}
+
+   async marcarAguaNoDia(litros: number) {
+    await this.criarDiaSeNaoExistir();
     const ref = await this.getDiaDocRef(this.dataHoje());
+    const snapshot = await getDoc(ref);
+    const data = snapshot.data() as DiaData;
+    const litrosAnteriores = data.waterIntake || 0;
     await updateDoc(ref, { waterIntake: litros });
-    console.log(`[💧] Água registrada: ${litros}L`);
+    const delta = litros - litrosAnteriores;
+    const xp = delta * 5;
+    if (xp !== 0) {
+      await this.adicionarXP(xp);
+      await this.atualizarXPGlobal(xp);
+    }
   }
 
-  async atualizarRefeicoes(meals: Record<string, boolean>) {
+  async toggleRefeicao(nomeRefeicao: string): Promise<void> {
+  await this.criarDiaSeNaoExistir();
   const diaRef = await this.getDiaDocRef(this.dataHoje());
-  await updateDoc(diaRef, { meals });
-  console.log('[🍽️] Refeições atualizadas no Firestore:', meals);
+  const snapshot = await getDoc(diaRef);
+
+  if (!snapshot.exists()) return;
+
+  const data = snapshot.data() as DiaData;
+  const refeicoes = data.meals || [];
+
+  let xpDelta = 0;
+
+  const refeicoesAtualizadas = refeicoes.map(ref => {
+    if (ref.nome === nomeRefeicao) {
+      const novaConclusao = !ref.concluida;
+      xpDelta += novaConclusao ? 10 : -10;
+      return { ...ref, concluida: novaConclusao };
+    }
+    return ref;
+  });
+
+  await updateDoc(diaRef, { meals: refeicoesAtualizadas });
+
+  if (xpDelta !== 0) {
+    await this.adicionarXP(xpDelta);
+    await this.atualizarXPGlobal(xpDelta);
+  }
+}
+
+
+
+
+async carregarQuestsDoDia(): Promise<{
+  dailyQuests: Quest[],
+  weeklyQuests: Quest[],
+  dailyHuntingQuests: Quest[],
+  weeklyHuntingQuests: Quest[]
+}> {
+  const ref = await this.getDiaDocRef(this.dataHoje());
+  const snapshot = await getDoc(ref);
+  const data = snapshot.data() as DiaData;
+
+  return {
+    dailyQuests: data?.dailyQuests ?? [],
+    weeklyQuests: data?.weeklyQuests ?? [],
+    dailyHuntingQuests: data?.dailyHuntingQuests ?? [],
+    weeklyHuntingQuests: data?.weeklyHuntingQuests ?? [],
+  };
 }
 
 
   // 🛠️ Utilitários =============================
-  private calcularVencimento(categoria: 'daily' | 'weekly') {
-    const hoje = new Date();
-    if (categoria === 'daily') return hoje.toISOString().split('T')[0];
-    const fimDaSemana = new Date();
-    fimDaSemana.setDate(hoje.getDate() + (7 - hoje.getDay()));
-    return fimDaSemana.toISOString().split('T')[0];
+  private calcularVencimento(categoria: 'daily' | 'weekly'): string {
+  const agora = new Date();
+
+  if (categoria === 'daily') {
+    agora.setHours(agora.getHours() + 24);
+  } else if (categoria === 'weekly') {
+    agora.setDate(agora.getDate() + 7);
   }
+
+  return agora.toISOString(); // inclui data e hora completas
+}
+
 
   private dataHoje(): string {
   return new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
 }
-
 
   async getDiaData(date: string): Promise<DiaData | null> {
     const ref = await this.getDiaDocRef(date);
     const snapshot = await getDoc(ref);
     return snapshot.exists() ? (snapshot.data() as DiaData) : null;
   }
+
+
+  agendarExpiracao(quest: Quest, tipo: 'dailyHunting' | 'weeklyHunting') {
+  const agora = new Date();
+  const vencimento = new Date(quest.vencimento);
+
+  if (vencimento <= agora) {
+    this.marcarExpiradaLocalmente(quest.id, tipo);
+    return;
+  }
+
+  const delay = vencimento.getTime() - agora.getTime();
+
+  setTimeout(() => {
+    this.marcarExpiradaLocalmente(quest.id, tipo);
+  }, delay);
+}
+
+private marcarExpiradaLocalmente(questId: string, tipo: 'dailyHunting' | 'weeklyHunting') {
+  const lista =
+    tipo === 'dailyHunting' ? this.dailyHuntingQuests : this.weeklyHuntingQuests;
+
+  const novaLista = lista.map(q =>
+    q.id === questId ? { ...q, expirado: true } : q
+  );
+
+  if (tipo === 'dailyHunting') this.dailyHuntingQuests = novaLista;
+  else this.weeklyHuntingQuests = novaLista;
+
+  console.log(`⚠️ Quest expirou: ${questId}`);
+}
+
+verificarExpiradas(quests: Quest[]): Quest[] {
+  const agora = Date.now();
+  return quests.map((q) => {
+    if (!q.concluida && !q.expirado && new Date(q.vencimento).getTime() < agora) {
+      // Aqui é o ponto em que precisamos:
+      // 1. Marcar localmente
+      // 2. Gravar no Firestore
+      this.marcarComoExpiradaNoFirestore(q); // async
+      return { ...q, expirado: true };
+    }
+    return q;
+  });
+}
+
+async marcarComoExpiradaNoFirestore(quest: Quest) {
+  const ref = await this.getDiaDocRef(this.dataHoje());
+  const snap = await getDoc(ref);
+  const data = snap.data() as DiaData;
+
+  const key = quest.categoria === 'daily' ? 'dailyQuests' :
+              quest.categoria === 'weekly' ? 'weeklyQuests' :
+              quest.categoria === 'dailyHunting' ? 'dailyHuntingQuests' :
+              'weeklyHuntingQuests';
+
+  const updatedList = (data[key] ?? []).map((q: Quest) =>
+    q.id === quest.id ? { ...q, expirado: true } : q
+  );
+
+  await updateDoc(ref, { [key]: updatedList });
+  console.log(`🔥 Quest ${quest.id} marcada como expirada no Firestore`);
+}
+
+
 }

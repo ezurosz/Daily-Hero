@@ -64,25 +64,50 @@
     </mat-card>
 
     <!-- Huntings -->
-    <mat-card class="card status-card">
-      <h3>Quadro de caçadas</h3>
-  <h3>📅 Diárias</h3>
+<mat-card class="card status-card">
+  <h3 class="card-title">Quadro de Caçadas</h3>
+
+  <h4 class="section-title">Diárias</h4>
   <mat-selection-list>
     <mat-list-option
       *ngFor="let quest of dailyHuntings"
-      [selected]="quest.done"
+      [selected]="quest.concluida"
       (click)="toggleDailyHunting(quest)">
-      {{ quest.nome }}
+
+      <div class="quest-item">
+        <div class="quest-header">
+          <span class="tags-container">
+            <span class="tag" *ngFor="let tag of quest.tags" [ngClass]="tag.toLowerCase()">{{ tag }}</span>
+          </span>
+          <span class="descricao">{{ quest.descricao }}</span>
+        </div>
+        <div class="quest-meta">
+          <small class="vencimento">⏰ {{ quest.vencimento | date:'short' }}</small>
+          <small *ngIf="quest.expirado" class="expirada">⚠️ Atrasada</small>
+        </div>
+      </div>
     </mat-list-option>
   </mat-selection-list>
 
-  <h3>📆 Semanais</h3>
+  <h4 class="section-title">Semanais</h4>
   <mat-selection-list>
     <mat-list-option
       *ngFor="let quest of weeklyHuntings"
-      [selected]="quest.done"
+      [selected]="quest.concluida"
       (click)="toggleWeeklyHunting(quest)">
-      {{ quest.nome }}
+
+      <div class="quest-item">
+        <div class="quest-header">
+          <span class="tags-container">
+            <span class="tag" *ngFor="let tag of quest.tags" [ngClass]="tag.toLowerCase()">{{ tag }}</span>
+          </span>
+          <span class="descricao">{{ quest.descricao }}</span>
+        </div>
+        <div class="quest-meta">
+          <small class="vencimento">⏰ {{ quest.vencimento | date:'short' }}</small>
+          <small *ngIf="quest.expirado" class="expirada">⚠️ Atrasada</small>
+        </div>
+      </div>
     </mat-list-option>
   </mat-selection-list>
 </mat-card>
@@ -92,27 +117,73 @@
   <div class="dashboard-middle">
     <!-- Refeições -->
     <!-- Dailies -->
-<mat-card class="card dailies">
-  <h3>📜 Missões Diárias</h3>
+ <mat-card class="card dailies">
+  <h3 class="card-title">Missões</h3>
+
+  <h4 class="section-title">Diárias</h4>
   <mat-selection-list>
     <mat-list-option
       *ngFor="let quest of dailyQuests"
       [selected]="quest.concluida"
-      (click)="toggleDailyQuest(quest)"
-    >
-      {{ quest.descricao }}
+      (click)="toggleFixedQuest(quest)">
+
+      <div class="quest-item">
+        <div class="quest-header">
+          <span class="tags-container">
+            <span class="tag" *ngFor="let tag of quest.tags" [ngClass]="tag.toLowerCase()">{{ tag }}</span>
+          </span>
+          <span class="descricao">{{ quest.descricao }}</span>
+        </div>
+        <div class="quest-meta">
+          <small class="vencimento">⏰ {{ quest.vencimento | date:'short' }}</small>
+          <small *ngIf="quest.expirado" class="expirada">⚠️ Atrasada</small>
+        </div>
+      </div>
+    </mat-list-option>
+  </mat-selection-list>
+
+  <h4 class="section-title">Semanais</h4>
+  <mat-selection-list>
+    <mat-list-option
+      *ngFor="let quest of weeklyQuests"
+      [selected]="quest.concluida"
+      (click)="toggleFixedQuest(quest)">
+
+      <div class="quest-item">
+        <div class="quest-header">
+          <span class="tags-container">
+            <span class="tag" *ngFor="let tag of quest.tags" [ngClass]="tag.toLowerCase()">{{ tag }}</span>
+          </span>
+          <span class="descricao">{{ quest.descricao }}</span>
+        </div>
+        <div class="quest-meta">
+          <small class="vencimento">⏰ {{ quest.vencimento | date:'short' }}</small>
+          <small *ngIf="quest.expirado" class="expirada">⚠️ Atrasada</small>
+        </div>
+      </div>
     </mat-list-option>
   </mat-selection-list>
 </mat-card>
 
+
     <!-- Refeições + Água -->
 <mat-card class="card refeicoes-agua">
   <h3>🍽️ Refeições</h3>
-  <mat-selection-list>
-    <mat-list-option *ngFor="let refeicao of refeicoes" [selected]="refeicao.feita" (click)="toggleRefeicao(refeicao)">
-      {{ refeicao.nome }}
-    </mat-list-option>
-  </mat-selection-list>
+<mat-selection-list>
+  <mat-list-option
+    *ngFor="let refeicao of refeicoes; trackBy: trackByName"
+    [selected]="refeicao.concluida"
+    (click)="toggleRefeicao(refeicao)"
+    [matTooltip]="refeicao.cardapio"
+    matTooltipClass="tooltip-formatado"
+    matTooltipPosition="above"
+  >
+    {{ refeicao.nome }}
+  </mat-list-option>
+</mat-selection-list>
+
+
+
 
   <h3>💧 Consumo de Água</h3>
   <mat-selection-list>
@@ -149,7 +220,7 @@
 
   <!-- HISTÓRICO -->
   <div class="dashboard-bottom">
-    <mat-card class="card historico">
+   <!--  <mat-card class="card historico">
       <h3>📈 Histórico de XP</h3>
       <table>
         <thead>
@@ -172,7 +243,7 @@
           </tr>
         </tbody>
       </table>
-    </mat-card>
+    </mat-card> -->
   </div>
 
   <!-- XP FLOAT -->

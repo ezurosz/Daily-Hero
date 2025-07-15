@@ -1,5 +1,9 @@
-export interface Refeicao {
-  id: string;
+export interface Meal {
   nome: string;
-  feita: boolean;
+  concluida: boolean;
+  cardapio: string;
+  kcal: number;
+  proteina: number;
+  carboidrato: number;
+  gordura: number;
 }

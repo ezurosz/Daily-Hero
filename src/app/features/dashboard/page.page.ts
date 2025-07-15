@@ -10,6 +10,10 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { BaseChartDirective, provideCharts, withDefaultRegisterables } from 'ng2-charts';
 import { AuthService } from '../../auth/auth.service';
 import { UserDataService } from '../../core/services/firebase/user-data';
+import { Meal } from '../../core/models/meal.model';
+import { Quest } from '../../core/models/quest.model';
+import { MatChipsModule } from '@angular/material/chips';
+
 
 @Component({
   selector: 'app-page',
@@ -26,6 +30,7 @@ import { UserDataService } from '../../core/services/firebase/user-data';
     MatExpansionModule,
     BaseChartDirective,
     MatTooltipModule,
+    MatChipsModule
   ],
   providers: [provideCharts(withDefaultRegisterables())],
 })
@@ -52,14 +57,15 @@ export class PagePage implements OnInit {
     'Sábado': null,
   };
 
-  refeicoes: { nome: string; feita: boolean }[] = [];
+  refeicoes: Meal[] = [];
   consumoAgua: boolean[] = [false, false, false, false];
   litros = [1, 2, 3, 4];
   treinos = ['Treino A', 'Treino B', 'Treino C', 'Treino D', 'Descanso'];
 
-  dailyHuntings: { id: string; nome: string; done: boolean; level: string; ultimoCheck: string | null }[] = [];
-  weeklyHuntings: { id: string; nome: string; done: boolean; level: string; ultimoCheck: string | null }[] = [];
-  dailyQuests: any[] = [];
+  dailyHuntings: Quest[] = [];
+  weeklyHuntings: Quest[] = [];
+  dailyQuests: Quest[] = [];
+  weeklyQuests: Quest[] = [];
 
   mostrarXpTemporario = false;
   xpGanhoTemporario = 0;
@@ -86,12 +92,32 @@ export class PagePage implements OnInit {
   ];
 
   async ngOnInit() {
-  this.atualizarDiaAtual();
-  await this.userDataService.instanciarDailiesFixas();      // ✅ Cria as dailies fixas no dia
-  await this.userDataService.carregarDailyQuests();         // ✅ Carrega dailies do dia (separado)
-  await this.carregarDadosDoUsuario();                      // ✅ Aqui já vem os huntingQuests junto
-  this.dailyQuests = this.userDataService.dailyQuests;     // Apenas para exibir as dailies fixas no painel
+  this.atualizarDiaAtual(); // sempre pode vir primeiro, é síncrono
+
+  // Etapa 1: Garante que o dia exista (único que precisa ser feito antes dos outros)
+  await this.userDataService.criarDiaSeNaoExistir();
+
+  // Etapa 2: Executa 3 tarefas em paralelo (não dependem umas das outras)
+  await Promise.all([
+    this.carregarTreinosDaSemana(),
+    this.userDataService.instanciarFixedQuests(),
+    this.userDataService.carregarFixedQuests(),
+  ]);
+
+  // Etapa 3: Carrega os dados gerais do usuário (refeições, xp, etc)
+  await this.carregarDadosDoUsuario();
+
+  await this.carregarQuestsParaExibicao();
+
+   // 🔁 Verifica quests expiradas a cada 90 segundos
+   setInterval(() => {
+    this.dailyQuests = this.userDataService.verificarExpiradas(this.dailyQuests);
+    this.weeklyQuests = this.userDataService.verificarExpiradas(this.weeklyQuests);
+    this.dailyHuntings = this.userDataService.verificarExpiradas(this.dailyHuntings);
+    this.weeklyHuntings = this.userDataService.verificarExpiradas(this.weeklyHuntings);
+  }, 60000); // a cada 60 segundos
 }
+
 
 
   atualizarDiaAtual() {
@@ -102,47 +128,41 @@ export class PagePage implements OnInit {
 
   async carregarDadosDoUsuario() {
   const hoje = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
-  console.log(hoje);
+  console.log('[📅] Carregando dados do dia:', hoje);
+
   const dados = await this.userDataService.getDiaData(hoje);
   if (!dados) return;
 
+  // Nível e XP
   this.nivelAtual = dados.nivelNoDia;
   this.xpAtual = dados.xpGanho;
 
-  this.refeicoes = Object.entries(dados.meals || {}).map(([nome, feita]) => ({
-    nome,
-    feita: Boolean(feita),
-  }));
+  // Refeições e água
+  this.refeicoes = dados.meals || [];
+  this.consumoAgua = this.litros.map(l => l <= (dados.waterIntake || 0));
 
-  this.consumoAgua = this.litros.map((litro) => litro <= (dados.waterIntake || 0));
+  // Treino do dia
   this.treinoPorDia[this.diaAtual] = dados.workout;
 
-  // ✅ Usar diretamente os dados carregados do Firestore, e não do service
-  const todasHuntings = dados.huntingQuests || [];
 
-  this.dailyHuntings = todasHuntings
-    .filter(q => q.categoria === 'daily')
-    .map(q => ({
-      id: q.id,
-      nome: q.descricao,
-      done: q.concluida,
-      level: q.level,
-      ultimoCheck: q.checkDate,
-    }));
+  console.log('[✅] Fixed Dailies:', this.dailyQuests);
+  console.log('[✅] Daily Huntings:', this.dailyHuntings);
+  console.log('[✅] Weekly Huntings:', this.weeklyHuntings);
+}
 
-  this.weeklyHuntings = todasHuntings
-    .filter(q => q.categoria === 'weekly')
-    .map(q => ({
-      id: q.id,
-      nome: q.descricao,
-      done: q.concluida,
-      level: q.level,
-      ultimoCheck: q.checkDate,
-    }));
 
-  console.log('[✅ Huntings carregadas]:', todasHuntings);
-  console.log('[✅ Daily]:', this.dailyHuntings);
-  console.log('[✅ Weekly]:', this.weeklyHuntings);
+async carregarQuestsParaExibicao() {
+  const {
+    dailyQuests,
+    weeklyQuests,
+    dailyHuntingQuests,
+    weeklyHuntingQuests,
+  } = await this.userDataService.carregarQuestsDoDia();
+
+  this.dailyQuests = dailyQuests;
+  this.weeklyQuests = weeklyQuests;
+  this.dailyHuntings = dailyHuntingQuests;
+  this.weeklyHuntings = weeklyHuntingQuests;
 }
 
 
@@ -154,86 +174,102 @@ export class PagePage implements OnInit {
     return Math.min((this.xpAtual / this.xpParaProximoNivel) * 100, 100);
   }
 
+  async carregarTreinosDaSemana() {
+  const hoje = new Date();
+  const inicioDaSemana = new Date(hoje);
+  inicioDaSemana.setDate(hoje.getDate() - hoje.getDay()); // Domingo
+
+  for (let i = 0; i < 7; i++) {
+    const data = new Date(inicioDaSemana);
+    data.setDate(inicioDaSemana.getDate() + i);
+
+    const nomeDoDia = this.diasSemana[i];
+    const dataString = data.toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+
+    const dados = await this.userDataService.getDiaData(dataString);
+    this.treinoPorDia[nomeDoDia] = dados?.workout ?? null;
+  }
+
+  console.log('[📅 Treinos da semana carregados]', this.treinoPorDia);
+}
+
+
   treinoFeitoNoDia(dia: string) {
     return this.treinoPorDia?.[dia] ?? null;
   }
 
-  async marcarTreino(treino: string) {
-  const treinoAtual = this.treinoPorDia[this.diaAtual];
+   async marcarTreino(treino: string) {
+  await this.userDataService.marcarTreinoNoDia(treino);
 
-  if (treinoAtual === treino) {
-    this.treinoPorDia[this.diaAtual] = null;
-    await this.userDataService.marcarTreinoNoDia(null);
-  } else {
-    this.treinoPorDia[this.diaAtual] = treino;
-    await this.userDataService.marcarTreinoNoDia(treino);
-    this.ganharXP(30);
+  // Após marcar, recarrega os dados reais do dia
+  const hoje = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+  const dados = await this.userDataService.getDiaData(hoje);
+
+  if (dados) {
+    this.treinoPorDia[this.diaAtual] = dados.workout;
+  }
+}
+
+trackByName(index: number, refeicao: Meal): string {
+  return refeicao.nome;
+}
+
+
+async toggleRefeicao(refeicao: Meal) {
+  // Envia apenas o nome para evitar mutações locais
+  await this.userDataService.toggleRefeicao(refeicao.nome);
+
+  // Recarrega a lista de refeições diretamente do Firestore
+  const hoje = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+  const dados = await this.userDataService.getDiaData(hoje);
+
+  if (dados?.meals) {
+    // Importante: usar spread para quebrar referência
+    this.refeicoes = dados.meals.map(m => ({ ...m }));
+    this.consumoAgua = this.litros.map(l => l <= (dados.waterIntake ?? 0));
   }
 }
 
 
-  async toggleRefeicao(refeicao: { nome: string; feita: boolean }) {
-    refeicao.feita = !refeicao.feita;
-    this.ganharXP(refeicao.feita ? 10 : -10);
 
-    const refeicoesAtualizadas: Record<string, boolean> = {};
-    this.refeicoes.forEach(r => refeicoesAtualizadas[r.nome] = r.feita);
-    await this.userDataService.atualizarRefeicoes(refeicoesAtualizadas);
-  }
 
   async toggleAgua(index: number) {
-    this.consumoAgua[index] = !this.consumoAgua[index];
-    const litrosConsumidos = this.consumoAgua.filter(v => v).length;
-    this.ganharXP(this.consumoAgua[index] ? 5 : -5);
-    await this.userDataService.marcarAguaNoDia(litrosConsumidos);
-  }
+  // Marca no serviço (ele já cuida do XP)
+  const novoValor = !this.consumoAgua[index];
+  const litros = this.litros[index];
+  await this.userDataService.marcarAguaNoDia(novoValor ? litros : litros - 1);
 
-  toggleDailyHunting(quest: any) {
-    quest.done = !quest.done;
-    this.userDataService.toggleConclusaoHunting(quest.id, quest.done);
-    this.ganharXP(quest.done ? 20 : -20);
-  }
-
-  toggleWeeklyHunting(quest: any) {
-    quest.done = !quest.done;
-    this.userDataService.toggleConclusaoHunting(quest.id, quest.done);
-    this.ganharXP(quest.done ? 40 : -40);
-  }
-
-  toggleDailyQuest(quest: any) {
-  quest.done = !quest.done;
-  this.userDataService.toggleConclusaoQuest(quest.id, quest.done);
-  this.ganharXP(quest.done ? 15 : -15);
+  // Recarrega a água com o dado real do banco
+  const dados = await this.userDataService.getDiaData(
+    new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' })
+  );
+  this.consumoAgua = this.litros.map(l => l <= (dados?.waterIntake || 0));
 }
 
-  ganharXP(quantidade: number) {
-    const nivelAntes = this.nivelAtual;
-    this.xpAtual += quantidade;
 
-    if (quantidade > 0) {
-      clearTimeout(this.xpTimeout);
-      this.mostrarXpTemporario = true;
-      this.xpGanhoTemporario = quantidade;
+  async toggleDailyHunting(quest: Quest) {
+  const novoValor = !quest.concluida;
+  await this.userDataService.toggleConclusaoHunting(quest.id, novoValor);
+  const { dailyHuntingQuests } = await this.userDataService.carregarQuestsDoDia();
+  this.dailyHuntings = dailyHuntingQuests;
+}
 
-      this.xpTimeout = setTimeout(() => {
-        this.mostrarXpTemporario = false;
-      }, 2000);
-    }
+async toggleWeeklyHunting(quest: Quest) {
+  const novoValor = !quest.concluida;
+  await this.userDataService.toggleConclusaoHunting(quest.id, novoValor);
+  const { weeklyHuntingQuests } = await this.userDataService.carregarQuestsDoDia();
+  this.weeklyHuntings = weeklyHuntingQuests;
+}
 
-    while (this.xpAtual >= this.xpParaProximoNivel) {
-      this.xpAtual -= this.xpParaProximoNivel;
-      this.nivelAtual++;
-    }
+  async toggleFixedQuest(quest: Quest) {
+  const novoValor = !quest.concluida;
+  await this.userDataService.toggleConclusaoFixedQuest(quest.id, novoValor);
+  const { dailyQuests, weeklyQuests } = await this.userDataService.carregarQuestsDoDia();
+  this.dailyQuests = dailyQuests;
+  this.weeklyQuests = weeklyQuests;
+}
 
-    if (this.nivelAtual > nivelAntes) {
-      clearTimeout(this.levelTimeout);
-      this.mostrarLevelUp = true;
 
-      this.levelTimeout = setTimeout(() => {
-        this.mostrarLevelUp = false;
-      }, 3000);
-    }
-  }
 
   chartData = {
     labels: ['Força', 'Destreza', 'Inteligência', 'Constituição', 'Carisma', 'Sabedoria'],

@@ -1,13 +1,9 @@
-export interface Quest {
+export interface FixedQuest{
   id: string;
 categoria: 'daily' | 'weekly';
 descricao: string;
 level: 'fácil' | 'médio' | 'difícil' | 'insano';
-vencimento: string;
-concluida: boolean;
-checkDate: string | null;
 tags?: ('Social' | 'Estudo' | 'Fé')[];
-expirado?: boolean;
-
+fixa: boolean;
 
 }

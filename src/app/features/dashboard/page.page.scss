@@ -236,6 +236,42 @@ mat-list-option:hover {
   z-index: 1000;
 }
 
+.tag {
+  display: inline-block;
+  background-color: #555;
+  color: white;
+  padding: 2px 6px;
+  margin-right: 4px;
+  font-size: 0.7rem;
+  border-radius: 4px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+// Exemplo de cores por tag
+.tag.fé {
+  background-color: #6b4ca4;
+}
+
+.tag.estudo {
+  background-color: #007acc;
+}
+
+.tag.social {
+  background-color: #e91e63;
+}
+
+.vencimento {
+  font-size: 0.75rem;
+  color: #aaa;
+}
+
+.expirada {
+  font-size: 0.75rem;
+  color: #e53935;
+  font-weight: bold;
+}
+
 @keyframes floatFade {
   0% {
     opacity: 0;
@@ -337,6 +373,14 @@ mat-list-option:hover {
   font-size: 10px;
   color: #ff5e00fb;
 }
+
+::ng-deep .tooltip-formatado {
+  white-space: pre-line;
+  font-size: 13px;
+  line-height: 1.4;
+  max-width: 250px;
+}
+
 
 
 

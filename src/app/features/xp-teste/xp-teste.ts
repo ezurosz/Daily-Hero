@@ -39,7 +39,7 @@ export class XpTesteComponent implements OnInit {
       console.log('✅ XP adicionada ao dia atual'); */
       
       // Quests
-      await this.userData.addDefaultDailyQuests();
+      await this.userData.addDefaultFixedQuests();
       console.log('✅ Quest templates adicionados');
 
       await this.userData.addDefaultHuntingQuests();
