@@ -658,5 +658,4 @@ async marcarComoExpiradaNoFirestore(quest: Quest) {
   console.log(`🔥 Quest ${quest.id} marcada como expirada no Firestore`);
 }
 
-
 }

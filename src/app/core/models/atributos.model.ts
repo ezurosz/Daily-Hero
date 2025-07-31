@@ -3,6 +3,6 @@ export interface Atributos {
   forca: number;
   inteligencia: number;
   fe: number;
-  sabedoria: number;
+  consciencia: number;
   social: number;
 }

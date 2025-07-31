@@ -269,6 +269,26 @@ async toggleWeeklyHunting(quest: Quest) {
   this.weeklyQuests = weeklyQuests;
 }
 
+mostrarCronometro(vencimento: string): boolean {
+  const agora = Date.now();
+  const tempoRestante = new Date(vencimento).getTime() - agora;
+  return tempoRestante < 1000 * 60 * 60 * 12; // menos de 12h
+}
+
+getTempoRestante(vencimento: string): string {
+  const tempo = new Date(vencimento).getTime() - Date.now();
+  if (tempo <= 0) return '00:00:00';
+
+  const horas = Math.floor(tempo / 3600000);
+  const minutos = Math.floor((tempo % 3600000) / 60000);
+  const segundos = Math.floor((tempo % 60000) / 1000);
+
+  return `${this.pad(horas)}:${this.pad(minutos)}:${this.pad(segundos)}`;
+}
+
+pad(num: number): string {
+  return num < 10 ? `0${num}` : `${num}`;
+}
 
 
   chartData = {
