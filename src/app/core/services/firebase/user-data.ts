@@ -419,7 +419,7 @@ async toggleConclusaoFixedQuest(questId: string, concluida: boolean) {
   if (quest.categoria === 'daily') xp = concluida ? 15 : -15;
   else if (quest.categoria === 'weekly') xp = concluida ? 30 : -30;
 
-  await this.adicionarXP(xp);
+  await this.adicionarXPNoDia(xp);
   await this.atualizarXPGlobal(xp);
 
   console.log(`[✅] Fixed quest ${questId} atualizada. XP: ${xp}`);
@@ -452,7 +452,7 @@ async toggleConclusaoFixedQuest(questId: string, concluida: boolean) {
   if (quest.categoria === 'daily') xp = concluida ? 20 : -20;
   else if (quest.categoria === 'weekly') xp = concluida ? 40 : -40;
 
-  await this.adicionarXP(xp);
+  await this.adicionarXPNoDia(xp);
   await this.atualizarXPGlobal(xp);
 
   console.log(`[✅] Hunting quest ${questId} atualizada. XP: ${xp}`);
@@ -460,7 +460,7 @@ async toggleConclusaoFixedQuest(questId: string, concluida: boolean) {
 
   // 🍽️ Refeições, Água, Treino, XP ========================
 
-  async adicionarXP(xp: number) {
+  async adicionarXPNoDia(xp: number) {
      await this.criarDiaSeNaoExistir();
     const ref = await this.getDiaDocRef(this.dataHoje());
     const snapshot = await getDoc(ref);
@@ -471,35 +471,34 @@ async toggleConclusaoFixedQuest(questId: string, concluida: boolean) {
     const xpAtual = data['xpGanho'] || 0;
     await updateDoc(ref, { xpGanho: xpAtual + xp });
 
-    console.log(`[✨] XP atualizada: ${xpAtual} ➜ ${xpAtual + xp}`);
+    console.log(`[✨] XP do dia atualizada: ${xpAtual} ➜ ${xpAtual + xp}`);
   }
 
   async atualizarXPGlobal(valor: number) {
   const userRef = await this.getUserDocRef();
   const snapshot = await getDoc(userRef);
 
-  let xpAtual = snapshot.data()?.['xp'] ?? 0;
-  let nivelAtual = snapshot.data()?.['nivel'] ?? 1;
+  let xpTotal = snapshot.data()?.['xp'] ?? 0;
+  xpTotal += valor;
 
-  xpAtual += valor;
+  // Recalcula o nível com base na XP TOTAL
+  let nivel = 1;
+  let xpAcumulada = xpTotal;
 
-  // Level Up
-  while (xpAtual >= this.xpParaProximoNivel(nivelAtual)) {
-    xpAtual -= this.xpParaProximoNivel(nivelAtual);
-    nivelAtual++;
-    console.log(`[🆙] Subiu para o nível ${nivelAtual}`);
+  while (xpAcumulada >= this.xpParaProximoNivel(nivel)) {
+    xpAcumulada -= this.xpParaProximoNivel(nivel);
+    nivel++;
   }
 
-  // Level Down (se permitir regressão)
-  while (xpAtual < 0 && nivelAtual > 1) {
-    nivelAtual--;
-    xpAtual += this.xpParaProximoNivel(nivelAtual);
-    console.log(`[⬇️] Recuou para o nível ${nivelAtual}`);
-  }
+  // Atualiza no banco XP TOTAL e o nível correspondente
+  await updateDoc(userRef, {
+    xp: xpTotal,     // XP TOTAL, não reduzida
+    nivel: nivel
+  });
 
-  await updateDoc(userRef, { xp: xpAtual, nivel: nivelAtual });
-  console.log(`[🔥] XP global atualizada: XP = ${xpAtual}, Nível = ${nivelAtual}`);
+  console.log(`[🔥] XP global atualizada: XP = ${xpTotal}, Nível = ${nivel}`);
 }
+
 
   private xpParaProximoNivel(nivel: number): number {
   return Math.floor(100 + nivel * 80); // Fórmula usada no componente
@@ -518,7 +517,7 @@ async toggleConclusaoFixedQuest(questId: string, concluida: boolean) {
   // Só ganha XP se o treino anterior era null, e o novo nome não for null
   if (treinoAnterior === null && nome !== null) {
     const xp = 30;
-    await this.adicionarXP(xp);
+    await this.adicionarXPNoDia(xp);
     await this.atualizarXPGlobal(xp);
     console.log(`[🏋️] Primeiro treino do dia registrado: "${nome}". XP: ${xp}`);
   } else {
@@ -536,7 +535,7 @@ async toggleConclusaoFixedQuest(questId: string, concluida: boolean) {
     const delta = litros - litrosAnteriores;
     const xp = delta * 5;
     if (xp !== 0) {
-      await this.adicionarXP(xp);
+      await this.adicionarXPNoDia(xp);
       await this.atualizarXPGlobal(xp);
     }
   }
@@ -565,7 +564,7 @@ async toggleConclusaoFixedQuest(questId: string, concluida: boolean) {
   await updateDoc(diaRef, { meals: refeicoesAtualizadas });
 
   if (xpDelta !== 0) {
-    await this.adicionarXP(xpDelta);
+    await this.adicionarXPNoDia(xpDelta);
     await this.atualizarXPGlobal(xpDelta);
   }
 }

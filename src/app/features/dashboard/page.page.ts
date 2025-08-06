@@ -45,7 +45,7 @@ export class PagePage implements OnInit, OnDestroy {
   logout() {
     this.authService.logout();
   }
-
+  isMobile = false;
   nivelAtual = 1;
   xpAtual = 0;
   diaAtual = '';
@@ -99,6 +99,7 @@ export class PagePage implements OnInit, OnDestroy {
 
   async ngOnInit() {
   this.atualizarDiaAtual(); // sempre pode vir primeiro, é síncrono
+  this.isMobile = window.innerWidth <= 768;
 
   // Etapa 1: Garante que o dia exista (único que precisa ser feito antes dos outros)
   await this.userDataService.criarDiaSeNaoExistir();

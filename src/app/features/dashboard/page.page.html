@@ -1,6 +1,23 @@
+<!-- 📱 Barra fixa no topo (somente mobile) -->
+<div class="topbar-mobile">
+  <div class="linha1">
+    <span class="rank">Rank E</span>
+    <span class="status">
+      Debuff
+    </span>
+  </div>
+  <div class="linha2">
+    <span class="nivel">Lv. {{ nivelAtual }}</span>
+    <span class="xp">{{ xpAtual }} / {{ xpParaProximoNivel(nivelAtual) }}</span>
+  </div>
+  <mat-progress-bar mode="determinate" [value]="progressoXP"></mat-progress-bar>
+</div>
+
+
+
 <div class="dashboard-wrapper">
   <!-- Logout -->
-  <button mat-raised-button color="warn" (click)="logout()">Logout</button>
+  <!-- <button mat-raised-button color="warn" (click)="logout()">Logout</button> -->
 
   <!-- TOPO -->
   <div class="dashboard-top">
