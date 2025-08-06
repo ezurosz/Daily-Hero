@@ -234,7 +234,7 @@
         <li *ngFor="let dia of diasSemana">
           <strong>{{ dia }}: </strong>
           <span *ngIf="treinoFeitoNoDia(dia); else nenhumTreino">{{ treinoFeitoNoDia(dia) }}</span>
-          <ng-template #nenhumTreino><em>Sem treino</em></ng-template>
+          <ng-template #nenhumTreino><em>Descanso</em></ng-template>
         </li>
       </ul>
     </mat-card>

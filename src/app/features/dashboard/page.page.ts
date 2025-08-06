@@ -15,6 +15,7 @@ import { Meal } from '../../core/models/meal.model';
 import { Quest } from '../../core/models/quest.model';
 import { MatChipsModule } from '@angular/material/chips';
 import { RouterModule } from '@angular/router';
+import { getDoc } from 'firebase/firestore';
 
 
 
@@ -64,7 +65,7 @@ export class PagePage implements OnInit, OnDestroy {
   refeicoes: Meal[] = [];
   consumoAgua: boolean[] = [false, false, false, false];
   litros = [1, 2, 3, 4];
-  treinos = ['Treino A', 'Treino B', 'Treino C', 'Treino D', 'Descanso'];
+  treinos: string[] = [];
 
   dailyHuntings: Quest[] = [];
   weeklyHuntings: Quest[] = [];
@@ -206,6 +207,20 @@ async carregarQuestsParaExibicao() {
 }
 
   async carregarTreinosDaSemana() {
+  // 🏋️‍♂️ 1. Carrega os nomes dos treinos do usuário
+  const userRef = await this.userDataService.getUserDocRef();
+  const snapshot = await getDoc(userRef);
+  const data = snapshot.data();
+
+  if (data?.['treinos']) {
+    this.treinos = data['treinos'].map((t: any) => t.nome);
+    console.log('[✅] Nomes dos treinos carregados:', this.treinos);
+  } else {
+    this.treinos = [];
+    console.log('[ℹ️] Nenhum treino cadastrado.');
+  }
+
+  // 🗓️ 2. Carrega os treinos feitos ao longo da semana
   const hoje = new Date();
   const inicioDaSemana = new Date(hoje);
   inicioDaSemana.setDate(hoje.getDate() - hoje.getDay()); // Domingo
@@ -223,7 +238,6 @@ async carregarQuestsParaExibicao() {
 
   console.log('[📅 Treinos da semana carregados]', this.treinoPorDia);
 }
-
 
   treinoFeitoNoDia(dia: string) {
     return this.treinoPorDia?.[dia] ?? null;
