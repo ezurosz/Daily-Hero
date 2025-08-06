@@ -42,7 +42,7 @@
       <div class="xp-header">
         <div class="status-bar">
           <p><strong>Nível:</strong> {{ nivelAtual }}</p>
-          <p><strong>XP:</strong> {{ xpAtual }} / {{ xpParaProximoNivel }}</p>
+          <p><strong>XP:</strong> {{ xpAtual }} / {{ xpParaProximoNivel(nivelAtual) }}</p>
           <mat-progress-bar mode="determinate" [value]="progressoXP"></mat-progress-bar>
         </div>
         <div class="radar-container">

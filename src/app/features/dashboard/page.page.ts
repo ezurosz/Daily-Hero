@@ -176,15 +176,32 @@ async carregarQuestsParaExibicao() {
   this.dailyHuntings = dailyHuntingQuests;
   this.weeklyHuntings = weeklyHuntingQuests;
 }
+// Xp e Level
 
+  xpParaProximoNivel(nivel: number): number {
+  return Math.floor(100 + nivel * 80);
+}
 
-  get xpParaProximoNivel(): number {
-    return Math.floor(100 + this.nivelAtual * 80);
-  }
 
   get progressoXP(): number {
-    return Math.min((this.xpAtual / this.xpParaProximoNivel) * 100, 100);
+  return Math.min((this.xpAtual / this.xpParaProximoNivel(this.nivelAtual)) * 100, 100);
+}
+
+  atualizarXPNoFront(valor: number) {
+  this.xpAtual += valor;
+
+  // ⬆️ Level up
+  while (this.xpAtual >= this.xpParaProximoNivel(this.nivelAtual)) {
+    this.xpAtual -= this.xpParaProximoNivel(this.nivelAtual);
+    this.nivelAtual++;
   }
+
+  // ⬇️ Level down
+  while (this.xpAtual < 0 && this.nivelAtual > 1) {
+    this.nivelAtual--;
+    this.xpAtual += this.xpParaProximoNivel(this.nivelAtual);
+  }
+}
 
   async carregarTreinosDaSemana() {
   const hoje = new Date();
@@ -228,54 +245,80 @@ trackByName(index: number, refeicao: Meal): string {
 
 
 async toggleRefeicao(refeicao: Meal) {
-  // Envia apenas o nome para evitar mutações locais
+  const novaConclusao = !refeicao.concluida;
   await this.userDataService.toggleRefeicao(refeicao.nome);
 
-  // Recarrega a lista de refeições diretamente do Firestore
+  // Atualiza XP no front
+  const xp = novaConclusao ? 10 : -10;
+  this.atualizarXPNoFront(xp);
+
+  // Recarrega as refeições
   const hoje = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
   const dados = await this.userDataService.getDiaData(hoje);
 
   if (dados?.meals) {
-    // Importante: usar spread para quebrar referência
     this.refeicoes = dados.meals.map(m => ({ ...m }));
     this.consumoAgua = this.litros.map(l => l <= (dados.waterIntake ?? 0));
   }
 }
 
+
   async toggleAgua(index: number) {
-  // Marca no serviço (ele já cuida do XP)
   const novoValor = !this.consumoAgua[index];
   const litros = this.litros[index];
-  await this.userDataService.marcarAguaNoDia(novoValor ? litros : litros - 1);
 
-  // Recarrega a água com o dado real do banco
+  const delta = novoValor ? 1 : -1;
+  const xp = delta * 5;
+
+  await this.userDataService.marcarAguaNoDia(litros + (delta === 1 ? 0 : -1));
+
+  // Atualiza XP no front
+  this.atualizarXPNoFront(xp);
+
+  // Recarrega visual
   const dados = await this.userDataService.getDiaData(
     new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' })
   );
   this.consumoAgua = this.litros.map(l => l <= (dados?.waterIntake || 0));
 }
 
+
   async toggleDailyHunting(quest: Quest) {
-  const novoValor = !quest.concluida;
-  await this.userDataService.toggleConclusaoHunting(quest.id, novoValor);
+  const novaConclusao = !quest.concluida;
+  await this.userDataService.toggleConclusaoHunting(quest.id, novaConclusao);
+
+  const xp = novaConclusao ? 20 : -20;
+  this.atualizarXPNoFront(xp);
+
   const { dailyHuntingQuests } = await this.userDataService.carregarQuestsDoDia();
   this.dailyHuntings = dailyHuntingQuests;
 }
 
 async toggleWeeklyHunting(quest: Quest) {
-  const novoValor = !quest.concluida;
-  await this.userDataService.toggleConclusaoHunting(quest.id, novoValor);
+  const novaConclusao = !quest.concluida;
+  await this.userDataService.toggleConclusaoHunting(quest.id, novaConclusao);
+
+  const xp = novaConclusao ? 40 : -40;
+  this.atualizarXPNoFront(xp);
+
   const { weeklyHuntingQuests } = await this.userDataService.carregarQuestsDoDia();
   this.weeklyHuntings = weeklyHuntingQuests;
 }
 
   async toggleFixedQuest(quest: Quest) {
-  const novoValor = !quest.concluida;
-  await this.userDataService.toggleConclusaoFixedQuest(quest.id, novoValor);
+  const novaConclusao = !quest.concluida;
+  await this.userDataService.toggleConclusaoFixedQuest(quest.id, novaConclusao);
+
+  const xp = quest.categoria === 'daily'
+    ? (novaConclusao ? 15 : -15)
+    : (novaConclusao ? 30 : -30);
+  this.atualizarXPNoFront(xp);
+
   const { dailyQuests, weeklyQuests } = await this.userDataService.carregarQuestsDoDia();
   this.dailyQuests = dailyQuests;
   this.weeklyQuests = weeklyQuests;
 }
+
 
 mostrarCronometro(vencimento: string): boolean {
   const agora = Date.now();
