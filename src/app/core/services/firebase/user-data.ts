@@ -288,19 +288,15 @@ const novasWeekly: Quest[] = fixasWeekly
   }
 }
 
+// 🎯 Lógica: Hunting Quests =============================
+huntingQuests: Quest[] = [];
 
-
-
-  // 🎯 Lógica: Hunting Quests =============================
-
-  huntingQuests: Quest[] = [];
 async addDefaultHuntingQuests() {
-  const diaRef = await this.getDiaDocRef(this.dataHoje());
-  const snapshot = await getDoc(diaRef);
+  const userRef = await this.getUserDocRef(); // Referência ao doc do usuário
+  const snapshot = await getDoc(userRef);
   const data = snapshot.data() ?? {};
 
-  const existentesDaily = (data['dailyHuntingQuests'] ?? []) as Quest[];
-  const existentesWeekly = (data['weeklyHuntingQuests'] ?? []) as Quest[];
+  const existentes = (data['huntingQuests'] ?? []) as Quest[];
 
   const novasDaily: Quest[] = [
     {
@@ -330,9 +326,9 @@ async addDefaultHuntingQuests() {
     },
   ];
 
-  const filtradasDaily = novasDaily.filter(
+  const novas = [...novasDaily, ...novasWeekly].filter(
     (nova) =>
-      !existentesDaily.some((existente) =>
+      !existentes.some((existente) =>
         questIgual(
           { descricao: nova.descricao, categoria: nova.categoria, level: nova.level },
           { descricao: existente.descricao, categoria: existente.categoria, level: existente.level }
@@ -340,28 +336,63 @@ async addDefaultHuntingQuests() {
       )
   );
 
-  const filtradasWeekly = novasWeekly.filter(
-    (nova) =>
-      !existentesWeekly.some((existente) =>
-        questIgual(
-          { descricao: nova.descricao, categoria: nova.categoria, level: nova.level },
-          { descricao: existente.descricao, categoria: existente.categoria, level: existente.level }
-        )
-      )
-  );
-
-  const updates: any = {};
-  if (filtradasDaily.length > 0)
-    updates['dailyHuntingQuests'] = [...existentesDaily, ...filtradasDaily];
-
-  if (filtradasWeekly.length > 0)
-    updates['weeklyHuntingQuests'] = [...existentesWeekly, ...filtradasWeekly];
-
-  if (Object.keys(updates).length > 0) {
-    await updateDoc(diaRef, updates);
-    console.log(`[🟢] Hunting quests adicionadas:`, updates);
+  if (novas.length > 0) {
+    const novasFinal = [...existentes, ...novas];
+    await updateDoc(userRef, { huntingQuests: novasFinal });
+    console.log(`[🟢] Hunting quests adicionadas ao doc do usuário:`, novas);
   } else {
-    console.log('[ℹ️] Nenhuma nova hunting quest foi adicionada (já existiam).');
+    console.log('[ℹ️] Nenhuma nova hunting quest foi adicionada (já existia).');
+  }
+}
+
+async instanciarHuntingQuests() {
+  const hoje = this.dataHoje();
+  const diaRef = await this.getDiaDocRef(hoje);
+  const diaSnap = await getDoc(diaRef);
+  const diaData = diaSnap.data() ?? {};
+
+  const jaInstanciadasDaily = (diaData['dailyHuntingQuests'] ?? []) as Quest[];
+  const jaInstanciadasWeekly = (diaData['weeklyHuntingQuests'] ?? []) as Quest[];
+
+  const userRef = await this.getUserDocRef();
+  const userSnap = await getDoc(userRef);
+  const userData = userSnap.data() ?? {};
+
+  const todasHunting = (userData['huntingQuests'] ?? []) as Quest[];
+
+  const novasDaily = todasHunting
+    .filter(q => q.categoria === 'daily')
+    .filter(q => !jaInstanciadasDaily.some(inst => questIgual(q, inst)))
+    .map(q => ({
+      ...q,
+      concluida: false,
+      expirado: false,
+      checkDate: null,
+      vencimento: this.calcularVencimento('daily'),
+    }));
+
+  const novasWeekly = todasHunting
+    .filter(q => q.categoria === 'weekly')
+    .filter(q => !jaInstanciadasWeekly.some(inst => questIgual(q, inst)))
+    .map(q => ({
+      ...q,
+      concluida: false,
+      expirado: false,
+      checkDate: null,
+      vencimento: this.calcularVencimento('weekly'),
+    }));
+
+  const atualizacoes: any = {};
+  if (novasDaily.length > 0)
+    atualizacoes['dailyHuntingQuests'] = [...jaInstanciadasDaily, ...novasDaily];
+  if (novasWeekly.length > 0)
+    atualizacoes['weeklyHuntingQuests'] = [...jaInstanciadasWeekly, ...novasWeekly];
+
+  if (Object.keys(atualizacoes).length > 0) {
+    await updateDoc(diaRef, atualizacoes);
+    console.log(`[✅] ${novasDaily.length} dailies e ${novasWeekly.length} weeklies hunting instanciadas.`);
+  } else {
+    console.log('[ℹ️] Nenhuma hunting quest nova a instanciar no dia.');
   }
 }
 
@@ -481,19 +512,22 @@ async toggleConclusaoFixedQuest(questId: string, concluida: boolean) {
   let xpTotal = snapshot.data()?.['xp'] ?? 0;
   xpTotal += valor;
 
-  // Recalcula o nível com base na XP TOTAL
   let nivel = 1;
   let xpAcumulada = xpTotal;
 
-  while (xpAcumulada >= this.xpParaProximoNivel(nivel)) {
-    xpAcumulada -= this.xpParaProximoNivel(nivel);
-    nivel++;
+  while (true) {
+    const xpParaSubir = this.xpParaProximoNivel(nivel);
+    if (xpAcumulada >= xpParaSubir) {
+      xpAcumulada -= xpParaSubir;
+      nivel++;
+    } else {
+      break;
+    }
   }
 
-  // Atualiza no banco XP TOTAL e o nível correspondente
   await updateDoc(userRef, {
-    xp: xpTotal,     // XP TOTAL, não reduzida
-    nivel: nivel
+    xp: xpTotal,     // XP total acumulada
+    nivel: nivel     // Nível corretamente ajustado
   });
 
   console.log(`[🔥] XP global atualizada: XP = ${xpTotal}, Nível = ${nivel}`);

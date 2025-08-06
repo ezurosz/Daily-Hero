@@ -108,7 +108,8 @@ export class PagePage implements OnInit, OnDestroy {
   await Promise.all([
     this.carregarTreinosDaSemana(),
     this.userDataService.instanciarFixedQuests(),
-    this.userDataService.carregarFixedQuests(),
+    /* this.userDataService.carregarFixedQuests(), */
+    this.userDataService.instanciarHuntingQuests(),
   ]);
 
   // Etapa 3: Carrega os dados gerais do usuário (refeições, xp, etc)
