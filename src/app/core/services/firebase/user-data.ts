@@ -14,12 +14,13 @@ import {
   addDoc,
   getDocs,
   query,
+  docData
 } from '@angular/fire/firestore';
 import { Auth } from '@angular/fire/auth';
 import { FixedQuest } from '../../models/fixed-quest.model';
 import { Quest } from '../../models/quest.model';
 import { DiaData } from '../../models/dia-data.model';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, Observable } from 'rxjs';
 import { user } from 'rxfire/auth';
 
 function questIgual(
@@ -55,6 +56,8 @@ export class UserDataService {
     if (!userData) throw new Error('Usuário não autenticado');
     return doc(this.firestore, `users/${userData.uid}/dias/${date}`);
   }
+
+
   async criarDiaSeNaoExistir(): Promise<void> {
   const hoje = this.dataHoje();
   const diaRef = await this.getDiaDocRef(hoje);
@@ -128,7 +131,7 @@ export class UserDataService {
   }
 }
 
-
+  
 
   // 📌 Inicialização do Usuário ============================
 async initUserDataIfNeeded() {
@@ -474,15 +477,33 @@ async toggleConclusaoFixedQuest(questId: string, concluida: boolean) {
   async atualizarXPGlobal(valor: number) {
   const userRef = await this.getUserDocRef();
   const snapshot = await getDoc(userRef);
-  const xpAtual = snapshot.data()?.['xp'] ?? 0;
 
-  await updateDoc(userRef, {
-    xp: xpAtual + valor
-  });
+  let xpAtual = snapshot.data()?.['xp'] ?? 0;
+  let nivelAtual = snapshot.data()?.['nivel'] ?? 1;
 
-  console.log(`[🔥] XP global atualizada: ${xpAtual} ➜ ${xpAtual + valor}`);
+  xpAtual += valor;
+
+  // Level Up
+  while (xpAtual >= this.xpParaProximoNivel(nivelAtual)) {
+    xpAtual -= this.xpParaProximoNivel(nivelAtual);
+    nivelAtual++;
+    console.log(`[🆙] Subiu para o nível ${nivelAtual}`);
+  }
+
+  // Level Down (se permitir regressão)
+  while (xpAtual < 0 && nivelAtual > 1) {
+    nivelAtual--;
+    xpAtual += this.xpParaProximoNivel(nivelAtual);
+    console.log(`[⬇️] Recuou para o nível ${nivelAtual}`);
+  }
+
+  await updateDoc(userRef, { xp: xpAtual, nivel: nivelAtual });
+  console.log(`[🔥] XP global atualizada: XP = ${xpAtual}, Nível = ${nivelAtual}`);
 }
 
+  private xpParaProximoNivel(nivel: number): number {
+  return Math.floor(100 + nivel * 80); // Fórmula usada no componente
+}
 
   async marcarTreinoNoDia(nome: string | null) {
   await this.criarDiaSeNaoExistir();
@@ -550,8 +571,6 @@ async toggleConclusaoFixedQuest(questId: string, concluida: boolean) {
 }
 
 
-
-
 async carregarQuestsDoDia(): Promise<{
   dailyQuests: Quest[],
   weeklyQuests: Quest[],
@@ -595,6 +614,23 @@ async carregarQuestsDoDia(): Promise<{
     return snapshot.exists() ? (snapshot.data() as DiaData) : null;
   }
 
+  //Puxando dados da coleção principal
+  async getUserMainData(): Promise<{ nivel: number; xp: number } | null> {
+    const uid = this.auth.currentUser?.uid;
+    if (!uid) return null;
+
+    const ref = doc(this.firestore, `users/${uid}`);
+    const snapshot = await getDoc(ref);
+    const data = snapshot.data();
+
+    if (!data) return null;
+
+    return {
+      nivel: data['nivel'] ?? 1,
+      xp: data['xp'] ?? 0,
+  };
+
+}
 
   agendarExpiracao(quest: Quest, tipo: 'dailyHunting' | 'weeklyHunting') {
   const agora = new Date();
@@ -657,5 +693,11 @@ async marcarComoExpiradaNoFirestore(quest: Quest) {
   await updateDoc(ref, { [key]: updatedList });
   console.log(`🔥 Quest ${quest.id} marcada como expirada no Firestore`);
 }
+
+async setXP(xp: number, nivel: number) {
+  const ref = await this.getUserDocRef();
+  await updateDoc(ref, { xp, nivel });
+}
+
 
 }

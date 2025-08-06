@@ -1,0 +1,83 @@
+.editar-container {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.titulo-treino {
+  text-align: center;
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: #fff;
+}
+
+.exercicio-card {
+  position: relative;
+  padding: 1rem;
+  background: #1a1a1a;
+  border-radius: 10px;
+}
+
+.exercicio-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.nome-exercicio {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #fff;
+  margin: 0;
+}
+
+.serie-header {
+  font-weight: 500;
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+  color: #fff;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+
+  @media (min-width: 480px) {
+    flex-direction: row;
+  }
+}
+
+.campo-input {
+  flex: 1;
+}
+
+.botoes-serie {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}
+
+.botoes-exercicio {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+
+  button {
+    width: 100%;
+  }
+}
+
+.novo-exercicio-card {
+  padding: 1rem;
+  background: #1a1a1a;
+  border-radius: 10px;
+}
+
+.campo-novo-exercicio {
+  width: 100%;
+  margin-bottom: 0.5rem;
+}

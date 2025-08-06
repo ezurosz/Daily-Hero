@@ -1,0 +1,26 @@
+<div class="container">
+  <!-- Adicionar novo treino -->
+  <mat-card class="novo-treino">
+    <mat-form-field appearance="outline">
+      <mat-label>Nome do novo treino</mat-label>
+      <input matInput [(ngModel)]="novoTreino.nome" />
+    </mat-form-field>
+
+    <button mat-raised-button color="primary" (click)="adicionarTreino()">
+      Adicionar Treino
+    </button>
+  </mat-card>
+
+  <!-- Lista de treinos -->
+  <mat-card class="lista-treinos" *ngFor="let treino of treinos">
+    <h3 (click)="navegarParaEditar(treino.nome)" style="cursor: pointer;">
+      {{ treino.nome }}
+    </h3>
+
+    <div class="acoes-treino">
+      <button mat-button color="warn" (click)="excluirTreino(treino.nome)">
+        Excluir
+      </button>
+    </div>
+  </mat-card>
+</div>

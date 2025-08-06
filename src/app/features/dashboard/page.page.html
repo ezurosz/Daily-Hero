@@ -198,6 +198,11 @@
     <!-- Treino -->
     <mat-card class="card treinos">
       <h3>🏋️‍♂️ Treinos</h3>
+      <a routerLink="/treinos">
+    <button mat-stroked-button color="accent" style="margin-bottom: 12px;">
+      Gerenciar treinos
+    </button>
+  </a>
       <p>Selecione o treino feito hoje ({{ diaAtual }}):</p>
       <div class="treino-buttons">
         <button mat-raised-button *ngFor="let treino of treinos" color="primary"

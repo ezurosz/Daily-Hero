@@ -1,4 +1,5 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject } from '@angular/core';
+import { Subscription } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatCardModule } from '@angular/material/card';
@@ -13,6 +14,8 @@ import { UserDataService } from '../../core/services/firebase/user-data';
 import { Meal } from '../../core/models/meal.model';
 import { Quest } from '../../core/models/quest.model';
 import { MatChipsModule } from '@angular/material/chips';
+import { RouterModule } from '@angular/router';
+
 
 
 @Component({
@@ -30,11 +33,12 @@ import { MatChipsModule } from '@angular/material/chips';
     MatExpansionModule,
     BaseChartDirective,
     MatTooltipModule,
-    MatChipsModule
+    MatChipsModule,
+    RouterModule
   ],
   providers: [provideCharts(withDefaultRegisterables())],
 })
-export class PagePage implements OnInit {
+export class PagePage implements OnInit, OnDestroy {
   private authService = inject(AuthService);
   private userDataService = inject(UserDataService);
 
@@ -70,6 +74,8 @@ export class PagePage implements OnInit {
   mostrarXpTemporario = false;
   xpGanhoTemporario = 0;
   mostrarLevelUp = false;
+
+  private userSub?: Subscription;
 
   xpHistorico: { data: string; ganho: number; bruto: number; modificador: number }[] = [
     { data: '01/07', ganho: 50, bruto: 55, modificador: -5 },
@@ -118,7 +124,10 @@ export class PagePage implements OnInit {
   }, 60000); // a cada 60 segundos
 }
 
-
+  ngOnDestroy(): void {
+    // aqui você cancela tudo que precisa ser limpo
+    this.userSub?.unsubscribe();
+  }
 
   atualizarDiaAtual() {
     const hoje = new Date();
@@ -133,9 +142,13 @@ export class PagePage implements OnInit {
   const dados = await this.userDataService.getDiaData(hoje);
   if (!dados) return;
 
-  // Nível e XP
-  this.nivelAtual = dados.nivelNoDia;
-  this.xpAtual = dados.xpGanho;
+  //Level e Xp vindo da coleção principal do usuário
+  const userMainData = await this.userDataService.getUserMainData();
+  if (userMainData) {
+    console.log(userMainData)
+    this.nivelAtual = userMainData.nivel;
+    this.xpAtual = userMainData.xp;
+  }
 
   // Refeições e água
   this.refeicoes = dados.meals || [];
@@ -149,7 +162,6 @@ export class PagePage implements OnInit {
   console.log('[✅] Daily Huntings:', this.dailyHuntings);
   console.log('[✅] Weekly Huntings:', this.weeklyHuntings);
 }
-
 
 async carregarQuestsParaExibicao() {
   const {
@@ -230,9 +242,6 @@ async toggleRefeicao(refeicao: Meal) {
   }
 }
 
-
-
-
   async toggleAgua(index: number) {
   // Marca no serviço (ele já cuida do XP)
   const novoValor = !this.consumoAgua[index];
@@ -245,7 +254,6 @@ async toggleRefeicao(refeicao: Meal) {
   );
   this.consumoAgua = this.litros.map(l => l <= (dados?.waterIntake || 0));
 }
-
 
   async toggleDailyHunting(quest: Quest) {
   const novoValor = !quest.concluida;

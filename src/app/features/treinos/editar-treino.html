@@ -1,0 +1,58 @@
+<div class="editar-container">
+  <h2 class="titulo-treino">{{ treino.nome }}</h2>
+
+  <mat-card *ngFor="let exercicio of treino.exercicios; let i = index" class="exercicio-card">
+    <div class="exercicio-header">
+      <h3 class="nome-exercicio">{{ exercicio.nome }}</h3>
+      <button mat-icon-button color="warn" (click)="removerExercicio(i)">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+
+    <div *ngFor="let serie of exercicio.series; let j = index" class="serie">
+      <div class="serie-header">Série {{ j + 1 }}</div>
+
+      <div class="input-group">
+        <mat-form-field appearance="outline" class="campo-input">
+          <mat-label>Reps</mat-label>
+          <input matInput type="number" [(ngModel)]="serie.reps" />
+          <mat-hint *ngIf="sugestoes[i]?.[j]?.reps">
+            Sugestão: {{ sugestoes[i][j].reps }} reps
+          </mat-hint>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="campo-input">
+          <mat-label>Carga (kg)</mat-label>
+          <input matInput type="number" [(ngModel)]="serie.carga" />
+          <mat-hint *ngIf="sugestoes[i]?.[j]?.carga">
+            Sugestão: {{ sugestoes[i][j].carga }} kg
+          </mat-hint>
+        </mat-form-field>
+      </div>
+
+      <div class="botoes-serie">
+        <button mat-stroked-button color="primary" (click)="salvarSerie(i, j)">Salvar</button>
+      </div>
+    </div>
+
+    <div class="botoes-exercicio">
+      <button mat-raised-button color="accent" (click)="adicionarSerie(exercicio)">+ Série</button>
+      <button
+        mat-stroked-button
+        color="warn"
+        (click)="removerSerie(exercicio, exercicio.series.length - 1)"
+        [disabled]="exercicio.series.length === 0"
+      >
+        Remover Série
+      </button>
+    </div>
+  </mat-card>
+
+  <mat-card class="novo-exercicio-card">
+    <mat-form-field appearance="outline" class="campo-novo-exercicio">
+      <mat-label>Nome do novo exercício</mat-label>
+      <input matInput [(ngModel)]="novoExercicio.nome" />
+    </mat-form-field>
+    <button mat-raised-button color="primary" (click)="adicionarExercicio()">Adicionar Exercício</button>
+  </mat-card>
+</div>

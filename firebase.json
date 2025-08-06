@@ -1,1 +1,9 @@
-{}
+{
+  "hosting": {
+    "public": "dist/daily-hero",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [
+      { "source": "**", "destination": "/index.html" }
+    ]
+  }
+}
