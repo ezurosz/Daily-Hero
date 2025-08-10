@@ -368,7 +368,7 @@ async instanciarHuntingQuests() {
       concluida: false,
       expirado: false,
       checkDate: null,
-      vencimento: this.calcularVencimento('daily'),
+      vencimento: q.vencimento,
     }));
 
   const novasWeekly = todasHunting
@@ -379,7 +379,7 @@ async instanciarHuntingQuests() {
       concluida: false,
       expirado: false,
       checkDate: null,
-      vencimento: this.calcularVencimento('weekly'),
+      vencimento: q.vencimento,
     }));
 
   const atualizacoes: any = {};

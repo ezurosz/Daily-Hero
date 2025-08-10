@@ -5,9 +5,13 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatCardModule } from '@angular/material/card';
 import { MatListModule } from '@angular/material/list';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { BaseChartDirective, provideCharts, withDefaultRegisterables } from 'ng2-charts';
 import { AuthService } from '../../auth/auth.service';
 import { UserDataService } from '../../core/services/firebase/user-data';
@@ -16,6 +20,7 @@ import { Quest } from '../../core/models/quest.model';
 import { MatChipsModule } from '@angular/material/chips';
 import { RouterModule } from '@angular/router';
 import { getDoc } from 'firebase/firestore';
+
 
 
 
@@ -35,13 +40,17 @@ import { getDoc } from 'firebase/firestore';
     BaseChartDirective,
     MatTooltipModule,
     MatChipsModule,
-    RouterModule
+    RouterModule,
+    MatProgressSpinnerModule,
+    MatCheckboxModule,
+    MatIconModule
   ],
   providers: [provideCharts(withDefaultRegisterables())],
 })
 export class PagePage implements OnInit, OnDestroy {
   private authService = inject(AuthService);
   private userDataService = inject(UserDataService);
+  private snackBar = inject(MatSnackBar);
 
   logout() {
     this.authService.logout();
@@ -259,80 +268,103 @@ trackByName(index: number, refeicao: Meal): string {
   return refeicao.nome;
 }
 
+//Anti Spam
+bloqueado = false;
+checkboxLoading = false;
+
+private async comTravaDeTempo(acao: () => Promise<void>) {
+  if (this.bloqueado) return;
+
+  this.bloqueado = true;
+  this.checkboxLoading = true;
+
+  await acao();
+
+  setTimeout(() => {
+    this.bloqueado = false;
+    this.checkboxLoading = false;
+  }, 1000);
+}
+
 
 async toggleRefeicao(refeicao: Meal) {
-  const novaConclusao = !refeicao.concluida;
-  await this.userDataService.toggleRefeicao(refeicao.nome);
+  this.comTravaDeTempo(async () => {
+    const novaConclusao = !refeicao.concluida;
+    await this.userDataService.toggleRefeicao(refeicao.nome);
 
-  // Atualiza XP no front
-  const xp = novaConclusao ? 10 : -10;
-  this.atualizarXPNoFront(xp);
+    const xp = novaConclusao ? 10 : -10;
+    this.atualizarXPNoFront(xp);
 
-  // Recarrega as refeições
-  const hoje = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
-  const dados = await this.userDataService.getDiaData(hoje);
+    const hoje = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+    const dados = await this.userDataService.getDiaData(hoje);
 
-  if (dados?.meals) {
-    this.refeicoes = dados.meals.map(m => ({ ...m }));
-    this.consumoAgua = this.litros.map(l => l <= (dados.waterIntake ?? 0));
-  }
+    if (dados?.meals) {
+      this.refeicoes = dados.meals.map(m => ({ ...m }));
+      this.consumoAgua = this.litros.map(l => l <= (dados.waterIntake ?? 0));
+    }
+  });
 }
 
 
   async toggleAgua(index: number) {
-  const novoValor = !this.consumoAgua[index];
-  const litros = this.litros[index];
+  this.comTravaDeTempo(async () => {
+    const novoValor = !this.consumoAgua[index];
+    const litros = this.litros[index];
+    const delta = novoValor ? 1 : -1;
+    const xp = delta * 5;
 
-  const delta = novoValor ? 1 : -1;
-  const xp = delta * 5;
+    await this.userDataService.marcarAguaNoDia(litros + (delta === 1 ? 0 : -1));
+    this.atualizarXPNoFront(xp);
 
-  await this.userDataService.marcarAguaNoDia(litros + (delta === 1 ? 0 : -1));
-
-  // Atualiza XP no front
-  this.atualizarXPNoFront(xp);
-
-  // Recarrega visual
-  const dados = await this.userDataService.getDiaData(
-    new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' })
-  );
-  this.consumoAgua = this.litros.map(l => l <= (dados?.waterIntake || 0));
+    const dados = await this.userDataService.getDiaData(
+      new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' })
+    );
+    this.consumoAgua = this.litros.map(l => l <= (dados?.waterIntake || 0));
+  });
 }
 
 
   async toggleDailyHunting(quest: Quest) {
-  const novaConclusao = !quest.concluida;
-  await this.userDataService.toggleConclusaoHunting(quest.id, novaConclusao);
+  this.comTravaDeTempo(async () => {
+    const novaConclusao = !quest.concluida;
+    await this.userDataService.toggleConclusaoHunting(quest.id, novaConclusao);
 
-  const xp = novaConclusao ? 20 : -20;
-  this.atualizarXPNoFront(xp);
+    const xp = novaConclusao ? 20 : -20;
+    this.atualizarXPNoFront(xp);
 
-  const { dailyHuntingQuests } = await this.userDataService.carregarQuestsDoDia();
-  this.dailyHuntings = dailyHuntingQuests;
+    const { dailyHuntingQuests } = await this.userDataService.carregarQuestsDoDia();
+    this.dailyHuntings = dailyHuntingQuests;
+  });
 }
 
 async toggleWeeklyHunting(quest: Quest) {
-  const novaConclusao = !quest.concluida;
-  await this.userDataService.toggleConclusaoHunting(quest.id, novaConclusao);
+  this.comTravaDeTempo(async () => {
+    const novaConclusao = !quest.concluida;
+    await this.userDataService.toggleConclusaoHunting(quest.id, novaConclusao);
 
-  const xp = novaConclusao ? 40 : -40;
-  this.atualizarXPNoFront(xp);
+    const xp = novaConclusao ? 40 : -40;
+    this.atualizarXPNoFront(xp);
 
-  const { weeklyHuntingQuests } = await this.userDataService.carregarQuestsDoDia();
-  this.weeklyHuntings = weeklyHuntingQuests;
+    const { weeklyHuntingQuests } = await this.userDataService.carregarQuestsDoDia();
+    this.weeklyHuntings = weeklyHuntingQuests;
+  });
 }
 
   async toggleFixedQuest(quest: Quest) {
-  const novaConclusao = !quest.concluida;
-  await this.userDataService.toggleConclusaoFixedQuest(quest.id, novaConclusao);
+  this.comTravaDeTempo(async () => {
+    const novaConclusao = !quest.concluida;
+    await this.userDataService.toggleConclusaoFixedQuest(quest.id, novaConclusao);
 
-  const xp = quest.categoria === 'daily'
-    ? (novaConclusao ? 15 : -15)
-    : (novaConclusao ? 30 : -30);
-  this.atualizarXPNoFront(xp);
+    const xp = quest.categoria === 'daily'
+      ? (novaConclusao ? 15 : -15)
+      : (novaConclusao ? 30 : -30);
 
-  const { dailyQuests, weeklyQuests } = await this.userDataService.carregarQuestsDoDia();
-  this.dailyQuests = dailyQuests;
-  this.weeklyQuests = weeklyQuests;
+    this.atualizarXPNoFront(xp);
+
+    const { dailyQuests, weeklyQuests } = await this.userDataService.carregarQuestsDoDia();
+    this.dailyQuests = dailyQuests;
+    this.weeklyQuests = weeklyQuests;
+  });
 }
 
 
@@ -359,59 +391,50 @@ pad(num: number): string {
 
 
   chartData = {
-    labels: ['Força', 'Destreza', 'Inteligência', 'Constituição', 'Carisma', 'Sabedoria'],
-    datasets: [
-      {
-        label: 'Atributos',
-        data: [65, 59, 90, 81, 56, 55],
-        fill: true,
-        backgroundColor: 'rgba(54,162,235,0.2)',
-        borderColor: 'rgb(54,162,235)',
-        pointBackgroundColor: 'rgb(54,162,235)',
-        pointBorderColor: '#fff',
-        pointHoverBackgroundColor: '#fff',
-        pointHoverBorderColor: 'rgb(54,162,235)',
-      },
-    ],
-  };
+  labels: ['Força', 'Destreza', 'Inteligência', 'Constituição', 'Carisma', 'Sabedoria'],
+  datasets: [
+    {
+      // label removido para não exibir texto no topo
+      data: [65, 59, 90, 81, 56, 55],
+      fill: true,
+      backgroundColor: 'rgba(54,162,235,0.2)',
+      borderColor: 'rgb(54,162,235)',
+      pointBackgroundColor: 'rgb(54,162,235)',
+      pointBorderColor: '#fff',
+      pointHoverBackgroundColor: '#fff',
+      pointHoverBorderColor: 'rgb(54,162,235)',
+    },
+  ],
+};
 
-  chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    devicePixelRatio: 2,
-    scales: {
-      r: {
-        angleLines: { display: true, color: 'rgba(255, 255, 255, 0.3)' },
-        grid: { color: 'rgba(255, 255, 255, 0.15)' },
-        pointLabels: {
-          color: '#ffffff',
-          font: {
-            size: 14,
-            weight: 'bold' as const,
-            family: "'Roboto', 'Helvetica', 'Arial', sans-serif",
-          },
-        },
-        suggestedMin: 0,
-        suggestedMax: 100,
-        ticks: { display: false },
-      },
-    },
-    plugins: {
-      legend: {
-        display: true,
-        labels: {
-          color: '#ffffff',
-          boxWidth: 0,
-          usePointStyle: false,
-          font: {
-            size: 14,
-            weight: 'bold' as const,
-            family: "'Roboto', 'Helvetica', 'Arial', sans-serif",
-          },
+chartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  devicePixelRatio: 2,
+  scales: {
+    r: {
+      angleLines: { display: true, color: 'rgba(255, 255, 255, 0.3)' },
+      grid: { color: 'rgba(255, 255, 255, 0.15)' },
+      pointLabels: {
+        color: '#ffffff',
+        font: {
+          size: 14,
+          weight: 'bold' as const,
+          family: "'Roboto', 'Helvetica', 'Arial', sans-serif",
         },
       },
+      suggestedMin: 0,
+      suggestedMax: 100,
+      ticks: { display: false },
     },
-  };
+  },
+  plugins: {
+    legend: {
+      display: false, // Desativa a legenda para não sobrar espaço
+    },
+  },
+};
+
 
   private xpTimeout: any = null;
   private levelTimeout: any = null;

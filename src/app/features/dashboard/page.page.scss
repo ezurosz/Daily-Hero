@@ -206,6 +206,53 @@ mat-list-option:hover {
   transform: scale(1.01);
 }
 
+/* Alturas padronizadas para as linhas e para o slot do checker/spinner */
+:host {
+  --row-h: 32px;      /* altura mínima da linha */
+  --check-w: 36px;    /* largura fixa do slot à direita */
+  --check-h: 24px;    /* altura do conteúdo do slot (checkbox/spinner) */
+}
+
+/* a linha não cresce quando troca checkbox por spinner */
+.quest-row {
+  display: flex;
+  align-items: center;
+  min-height: var(--row-h);
+  padding: 4px 0;           /* ajuste fino do respiro vertical */
+}
+
+.quest-content {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* slot fixo à direita (mesma largura e altura sempre) */
+.quest-check {
+  width: var(--check-w);
+  min-width: var(--check-w);
+  height: var(--check-h);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* normaliza o tamanho real do spinner para não “empurrar” a linha */
+.quest-check mat-progress-spinner {
+  width: var(--check-h) !important;
+  height: var(--check-h) !important;
+  display: block;           /* evita baseline estranha */
+  margin: 0;
+}
+
+/* idem para o checkbox (alguns temas têm altura maior) */
+.quest-check mat-checkbox {
+  height: var(--check-h);
+  display: flex;
+  align-items: center;
+  margin: 0;
+}
+
+
 .treino-buttons button {
   transition: transform 0.1s ease;
 }
@@ -370,6 +417,8 @@ mat-list-option:hover {
 .topbar-mobile {
   display: none;
 }
+
+
 
 @keyframes popupFade {
   0% { opacity: 0; transform: translate(-50%, -20px); }

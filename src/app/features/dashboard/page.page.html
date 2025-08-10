@@ -38,7 +38,7 @@
       </div>
 
       <!-- Conquistas -->
-      <div class="achievements-container">
+      <!-- <div class="achievements-container">
         <h3>🏆 Conquistas</h3>
         <div class="achievements-grid">
           <div class="achievement" *ngFor="let badge of badges">
@@ -51,7 +51,7 @@
             </div>
           </div>
         </div>
-      </div>
+      </div> -->
     </mat-card>
 
     <!-- XP + Radar -->
@@ -67,7 +67,7 @@
         </div>
       </div>
 
-      <div class="atributos-limpo">
+      <!-- <div class="atributos-limpo">
         <h3>📊 Atributos Detalhados</h3>
         <ul class="atributos-lista">
           <li><span class="atributo-nome">Força</span><span class="atributo-valor">65</span></li>
@@ -77,168 +77,282 @@
           <li><span class="atributo-nome">Carisma</span><span class="atributo-valor">56</span></li>
           <li><span class="atributo-nome">Sabedoria</span><span class="atributo-valor">55</span></li>
         </ul>
-      </div>
+      </div> -->
     </mat-card>
 
     <!-- Huntings -->
 <mat-card class="card status-card">
   <h3 class="card-title">Quadro de Caçadas</h3>
 
-  <h4 class="section-title">Diárias</h4>
-  <mat-selection-list>
-    <mat-list-option
-      *ngFor="let quest of dailyHuntings"
-      [selected]="quest.concluida"
-      (click)="toggleDailyHunting(quest)">
-
-      <div class="quest-item">
-        <div class="quest-header">
-          <span class="tags-container">
-            <span class="tag" *ngFor="let tag of quest.tags" [ngClass]="tag.toLowerCase()">{{ tag }}</span>
+ <h4 class="section-title">Diárias</h4>
+<div class="quest-list">
+  <div
+    class="quest-row"
+    *ngFor="let quest of dailyHuntings"
+    (click)="!bloqueado && toggleDailyHunting(quest)"
+  >
+    <!-- Conteúdo -->
+    <div class="quest-content">
+      <div class="quest-header">
+        <span class="tags-container">
+          <span class="tag" *ngFor="let tag of quest.tags" [ngClass]="tag.toLowerCase()">
+            {{ tag }}
           </span>
-          <span class="descricao">{{ quest.descricao }}</span>
-        </div>
-        <div class="quest-meta">
-          <small class="vencimento">⏰ {{ quest.vencimento | date:'short' }}</small>
-          <small *ngIf="quest.expirado" class="expirada">⚠️ Atrasada</small>
-        </div>
+        </span>
+        <span class="descricao">{{ quest.descricao }}</span>
       </div>
-    </mat-list-option>
-  </mat-selection-list>
+      <div class="quest-meta">
+        <small class="vencimento">⏰ {{ quest.vencimento | date: 'short' }}</small>
+        <small *ngIf="quest.expirado" class="expirada">⚠️ Atrasada</small>
+      </div>
+    </div>
+
+    <!-- Checkbox ou Spinner (agora à direita) -->
+    <div class="quest-check">
+      <ng-container *ngIf="!bloqueado; else loading">
+        <mat-checkbox [checked]="quest.concluida"></mat-checkbox>
+      </ng-container>
+      <ng-template #loading>
+        <mat-progress-spinner
+          diameter="24"
+          mode="indeterminate"
+          strokeWidth="3"
+          color="accent"
+        ></mat-progress-spinner>
+      </ng-template>
+    </div>
+  </div>
+</div>
+
 
   <h4 class="section-title">Semanais</h4>
-  <mat-selection-list>
-    <mat-list-option
-      *ngFor="let quest of weeklyHuntings"
-      [selected]="quest.concluida"
-      (click)="toggleWeeklyHunting(quest)">
-
-      <div class="quest-item">
-        <div class="quest-header">
-          <span class="tags-container">
-            <span class="tag" *ngFor="let tag of quest.tags" [ngClass]="tag.toLowerCase()">{{ tag }}</span>
+<div class="quest-list">
+  <div
+    class="quest-row"
+    *ngFor="let quest of weeklyHuntings"
+    (click)="!bloqueado && toggleWeeklyHunting(quest)"
+  >
+    <!-- Conteúdo -->
+    <div class="quest-content">
+      <div class="quest-header">
+        <span class="tags-container">
+          <span class="tag" *ngFor="let tag of quest.tags" [ngClass]="tag.toLowerCase()">
+            {{ tag }}
           </span>
-          <span class="descricao">{{ quest.descricao }}</span>
-        </div>
-        <div class="quest-meta">
-          <small class="vencimento">⏰ {{ quest.vencimento | date:'short' }}</small>
-          <small *ngIf="quest.expirado" class="expirada">⚠️ Atrasada</small>
-        </div>
+        </span>
+        <span class="descricao">{{ quest.descricao }}</span>
       </div>
-    </mat-list-option>
-  </mat-selection-list>
+      <div class="quest-meta">
+        <small class="vencimento">⏰ {{ quest.vencimento | date:'short' }}</small>
+        <small *ngIf="quest.expirado" class="expirada">⚠️ Atrasada</small>
+      </div>
+    </div>
+
+    <!-- Checkbox ou Spinner (mesma lógica das Diárias) -->
+    <div class="quest-check">
+      <ng-container *ngIf="!bloqueado; else loadingWeekly">
+        <mat-checkbox [checked]="quest.concluida"></mat-checkbox>
+      </ng-container>
+      <ng-template #loadingWeekly>
+        <mat-progress-spinner
+          diameter="24"
+          mode="indeterminate"
+          strokeWidth="3"
+          color="accent">
+        </mat-progress-spinner>
+      </ng-template>
+    </div>
+  </div>
+</div>
+
 </mat-card>
 </div>
 
-  <!-- MEIO -->
-  <div class="dashboard-middle">
-    <!-- Refeições -->
-    <!-- Dailies -->
- <mat-card class="card dailies">
-  <h3 class="card-title">Missões</h3>
+<!-- MEIO -->
+<div class="dashboard-middle">
+  <!-- Refeições -->
+  <!-- Dailies -->
+  <mat-card class="card dailies">
+    <h3 class="card-title">Missões</h3>
 
-  <h4 class="section-title">Diárias</h4>
-  <mat-selection-list>
-    <mat-list-option
-      *ngFor="let quest of dailyQuests"
-      [selected]="quest.concluida"
-      (click)="toggleFixedQuest(quest)">
-
-      <div class="quest-item">
-        <div class="quest-header">
-          <span class="tags-container">
-            <span class="tag" *ngFor="let tag of quest.tags" [ngClass]="tag.toLowerCase()">{{ tag }}</span>
-          </span>
-          <span class="descricao">{{ quest.descricao }}</span>
+    <!-- Diárias -->
+    <h4 class="section-title">Diárias</h4>
+    <div class="quest-list">
+      <div
+        class="quest-row"
+        *ngFor="let quest of dailyQuests"
+        (click)="!bloqueado && toggleFixedQuest(quest)"
+      >
+        <!-- Conteúdo -->
+        <div class="quest-content">
+          <div class="quest-header">
+            <span class="tags-container">
+              <span class="tag" *ngFor="let tag of quest.tags" [ngClass]="tag.toLowerCase()">
+                {{ tag }}
+              </span>
+            </span>
+            <span class="descricao">{{ quest.descricao }}</span>
+          </div>
+          <div class="quest-meta">
+            <small class="vencimento">⏰ {{ quest.vencimento | date:'short' }}</small>
+            <small *ngIf="quest.expirado" class="expirada">⚠️ Atrasada</small>
+          </div>
         </div>
-        <div class="quest-meta">
-          <small class="vencimento">⏰ {{ quest.vencimento | date:'short' }}</small>
-          <small *ngIf="quest.expirado" class="expirada">⚠️ Atrasada</small>
-        </div>
-      </div>
-    </mat-list-option>
-  </mat-selection-list>
 
-  <h4 class="section-title">Semanais</h4>
-  <mat-selection-list>
-    <mat-list-option
-      *ngFor="let quest of weeklyQuests"
-      [selected]="quest.concluida"
-      (click)="toggleFixedQuest(quest)">
-
-      <div class="quest-item">
-        <div class="quest-header">
-          <span class="tags-container">
-            <span class="tag" *ngFor="let tag of quest.tags" [ngClass]="tag.toLowerCase()">{{ tag }}</span>
-          </span>
-          <span class="descricao">{{ quest.descricao }}</span>
-        </div>
-        <div class="quest-meta">
-          <small class="vencimento">⏰ {{ quest.vencimento | date:'short' }}</small>
-          <small *ngIf="quest.expirado" class="expirada">⚠️ Atrasada</small>
+        <!-- Checkbox ou Spinner -->
+        <div class="quest-check">
+          <ng-container *ngIf="!bloqueado; else loadingFixedDaily">
+            <mat-checkbox [checked]="quest.concluida"></mat-checkbox>
+          </ng-container>
+          <ng-template #loadingFixedDaily>
+            <mat-progress-spinner
+              diameter="24"
+              mode="indeterminate"
+              strokeWidth="3"
+              color="accent">
+            </mat-progress-spinner>
+          </ng-template>
         </div>
       </div>
-    </mat-list-option>
-  </mat-selection-list>
-</mat-card>
+    </div>
 
+    <!-- Semanais -->
+    <h4 class="section-title">Semanais</h4>
+    <div class="quest-list">
+      <div
+        class="quest-row"
+        *ngFor="let quest of weeklyQuests"
+        (click)="!bloqueado && toggleFixedQuest(quest)"
+      >
+        <!-- Conteúdo -->
+        <div class="quest-content">
+          <div class="quest-header">
+            <span class="tags-container">
+              <span class="tag" *ngFor="let tag of quest.tags" [ngClass]="tag.toLowerCase()">
+                {{ tag }}
+              </span>
+            </span>
+            <span class="descricao">{{ quest.descricao }}</span>
+          </div>
+          <div class="quest-meta">
+            <small class="vencimento">⏰ {{ quest.vencimento | date:'short' }}</small>
+            <small *ngIf="quest.expirado" class="expirada">⚠️ Atrasada</small>
+          </div>
+        </div>
 
-    <!-- Refeições + Água -->
+        <!-- Checkbox ou Spinner -->
+        <div class="quest-check">
+          <ng-container *ngIf="!bloqueado; else loadingFixedWeekly">
+            <mat-checkbox [checked]="quest.concluida"></mat-checkbox>
+          </ng-container>
+          <ng-template #loadingFixedWeekly>
+            <mat-progress-spinner
+              diameter="24"
+              mode="indeterminate"
+              strokeWidth="3"
+              color="accent">
+            </mat-progress-spinner>
+          </ng-template>
+        </div>
+      </div>
+    </div>
+  </mat-card>
+
+  <!-- Refeições + Água -->
 <mat-card class="card refeicoes-agua">
   <h3>🍽️ Refeições</h3>
-<mat-selection-list>
-  <mat-list-option
-    *ngFor="let refeicao of refeicoes; trackBy: trackByName"
-    [selected]="refeicao.concluida"
-    (click)="toggleRefeicao(refeicao)"
-    [matTooltip]="refeicao.cardapio"
-    matTooltipClass="tooltip-formatado"
-    matTooltipPosition="above"
-  >
-    {{ refeicao.nome }}
-  </mat-list-option>
-</mat-selection-list>
+  <div class="quest-list">
+    <div
+      class="quest-row"
+      *ngFor="let refeicao of refeicoes; trackBy: trackByName"
+      (click)="!bloqueado && toggleRefeicao(refeicao)"
+      [matTooltip]="refeicao.cardapio"
+      matTooltipClass="tooltip-formatado"
+      matTooltipPosition="above"
+    >
+      <!-- Conteúdo -->
+      <div class="quest-content">
+        {{ refeicao.nome }}
+      </div>
 
-
-
+      <!-- Checker/Spinner -->
+      <div class="quest-check">
+        <ng-container *ngIf="!bloqueado; else loadingRefeicao">
+          <mat-checkbox [checked]="refeicao.concluida"></mat-checkbox>
+        </ng-container>
+        <ng-template #loadingRefeicao>
+          <mat-progress-spinner
+            diameter="24"
+            mode="indeterminate"
+            strokeWidth="3"
+            color="accent">
+          </mat-progress-spinner>
+        </ng-template>
+      </div>
+    </div>
+  </div>
 
   <h3>💧 Consumo de Água</h3>
-  <mat-selection-list>
-    <mat-list-option *ngFor="let litro of litros; let i = index" [selected]="consumoAgua[i]" (click)="toggleAgua(i)">
-      +1L
-    </mat-list-option>
-  </mat-selection-list>
+  <div class="quest-list">
+    <div
+      class="quest-row"
+      *ngFor="let litro of litros; let i = index"
+      (click)="!bloqueado && toggleAgua(i)"
+    >
+      <!-- Conteúdo -->
+      <div class="quest-content">
+        +1L
+      </div>
+
+      <!-- Checker/Spinner -->
+      <div class="quest-check">
+        <ng-container *ngIf="!bloqueado; else loadingAgua">
+          <mat-checkbox [checked]="consumoAgua[i]"></mat-checkbox>
+        </ng-container>
+        <ng-template #loadingAgua>
+          <mat-progress-spinner
+            diameter="24"
+            mode="indeterminate"
+            strokeWidth="3"
+            color="accent">
+          </mat-progress-spinner>
+        </ng-template>
+      </div>
+    </div>
+  </div>
 
   <a routerLink="/refeicoes-cadastro" class="link">Gerenciar refeições</a>
 </mat-card>
 
-    <!-- Treino -->
-    <mat-card class="card treinos">
-      <h3>🏋️‍♂️ Treinos</h3>
-      <a routerLink="/treinos">
-    <button mat-stroked-button color="accent" style="margin-bottom: 12px;">
-      Gerenciar treinos
-    </button>
-  </a>
-      <p>Selecione o treino feito hoje ({{ diaAtual }}):</p>
-      <div class="treino-buttons">
-        <button mat-raised-button *ngFor="let treino of treinos" color="primary"
-                [disabled]="treinoPorDia[diaAtual] === treino"
-                [class.active]="treinoPorDia[diaAtual] === treino"
-                (click)="marcarTreino(treino)">
-          {{ treino }}
-        </button>
-      </div>
-      <h3>📅 Treinos feitos na semana:</h3>
-      <ul>
-        <li *ngFor="let dia of diasSemana">
-          <strong>{{ dia }}: </strong>
-          <span *ngIf="treinoFeitoNoDia(dia); else nenhumTreino">{{ treinoFeitoNoDia(dia) }}</span>
-          <ng-template #nenhumTreino><em>Descanso</em></ng-template>
-        </li>
-      </ul>
-    </mat-card>
-  </div>
+
+  <!-- Treino -->
+  <mat-card class="card treinos">
+    <h3>🏋️‍♂️ Treinos</h3>
+    <a routerLink="/treinos">
+      <button mat-stroked-button color="accent" style="margin-bottom: 12px;">
+        Gerenciar treinos
+      </button>
+    </a>
+    <p>Selecione o treino feito hoje ({{ diaAtual }}):</p>
+    <div class="treino-buttons">
+      <button mat-raised-button *ngFor="let treino of treinos" color="primary"
+              [disabled]="treinoPorDia[diaAtual] === treino"
+              [class.active]="treinoPorDia[diaAtual] === treino"
+              (click)="marcarTreino(treino)">
+        {{ treino }}
+      </button>
+    </div>
+    <h3>📅 Treinos feitos na semana:</h3>
+    <ul>
+      <li *ngFor="let dia of diasSemana">
+        <strong>{{ dia }}: </strong>
+        <span *ngIf="treinoFeitoNoDia(dia); else nenhumTreino">{{ treinoFeitoNoDia(dia) }}</span>
+        <ng-template #nenhumTreino><em>Descanso</em></ng-template>
+      </li>
+    </ul>
+  </mat-card>
+</div>
+
 
   <!-- HISTÓRICO -->
   <div class="dashboard-bottom">
@@ -277,4 +391,3 @@
   <div class="level-up-banner" *ngIf="mostrarLevelUp">
     🌟 LEVEL UP! Agora você é nível {{ nivelAtual }}!
   </div>
-</div>
