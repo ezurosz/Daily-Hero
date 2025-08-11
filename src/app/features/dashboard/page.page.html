@@ -88,8 +88,8 @@
 <div class="quest-list">
   <div
     class="quest-row"
-    *ngFor="let quest of dailyHuntings"
-    (click)="!bloqueado && toggleDailyHunting(quest)"
+    *ngFor="let quest of dailyHunting"
+    (click)="!bloqueado && toggleHuntingQuest(quest)"
   >
     <!-- Conteúdo -->
     <div class="quest-content">
@@ -129,8 +129,8 @@
 <div class="quest-list">
   <div
     class="quest-row"
-    *ngFor="let quest of weeklyHuntings"
-    (click)="!bloqueado && toggleWeeklyHunting(quest)"
+    *ngFor="let quest of weeklyHunting"
+    (click)="!bloqueado && toggleHuntingQuest(quest)"
   >
     <!-- Conteúdo -->
     <div class="quest-content">
@@ -180,7 +180,7 @@
     <div class="quest-list">
       <div
         class="quest-row"
-        *ngFor="let quest of dailyQuests"
+        *ngFor="let quest of dailyFixed"
         (click)="!bloqueado && toggleFixedQuest(quest)"
       >
         <!-- Conteúdo -->
@@ -221,7 +221,7 @@
     <div class="quest-list">
       <div
         class="quest-row"
-        *ngFor="let quest of weeklyQuests"
+        *ngFor="let quest of weeklyFixed"
         (click)="!bloqueado && toggleFixedQuest(quest)"
       >
         <!-- Conteúdo -->

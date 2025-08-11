@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, computed } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
@@ -20,6 +20,7 @@ import { QuestInstance } from '../../core/models/quest-instance.model';
 import { MatChipsModule } from '@angular/material/chips';
 import { RouterModule } from '@angular/router';
 import { getDoc } from 'firebase/firestore';
+import { HuntingTemplate } from '../../core/models/hunting-template';
 
 
 
@@ -76,10 +77,22 @@ export class PagePage implements OnInit, OnDestroy {
   litros = [1, 2, 3, 4];
   treinos: string[] = [];
 
-  dailyHuntings: QuestInstance[] = [];
-  weeklyHuntings: QuestInstance[] = [];
-  dailyQuests: QuestInstance[] = [];
-  weeklyQuests: QuestInstance[] = [];
+  huntingQuests: HuntingTemplate[] = [];
+  fixedQuests: QuestInstance[] = [];
+
+  // getters para o template
+get dailyHunting(): HuntingTemplate[] {
+  return this.huntingQuests.filter(q => q.categoria === 'daily');
+}
+get weeklyHunting(): HuntingTemplate[] {
+  return this.huntingQuests.filter(q => q.categoria === 'weekly');
+}
+get dailyFixed(): QuestInstance[] {
+  return this.fixedQuests.filter(q => q.categoria === 'daily');
+}
+get weeklyFixed(): QuestInstance[] {
+  return this.fixedQuests.filter(q => q.categoria === 'weekly');
+}
 
   mostrarXpTemporario = false;
   xpGanhoTemporario = 0;
@@ -129,10 +142,8 @@ export class PagePage implements OnInit, OnDestroy {
 
    // 🔁 Verifica quests expiradas a cada 90 segundos
    setInterval(() => {
-    this.dailyQuests = this.userDataService.verificarExpiradas(this.dailyQuests);
-    this.weeklyQuests = this.userDataService.verificarExpiradas(this.weeklyQuests);
-    this.dailyHuntings = this.userDataService.verificarExpiradas(this.dailyHuntings);
-    this.weeklyHuntings = this.userDataService.verificarExpiradas(this.weeklyHuntings);
+    this.fixedQuests = this.userDataService.verificarExpiradas(this.fixedQuests);
+    this.huntingQuests = this.userDataService.verificarExpiradas(this.huntingQuests);
   }, 60000); // a cada 60 segundos
 }
 
@@ -170,23 +181,18 @@ export class PagePage implements OnInit, OnDestroy {
   this.treinoPorDia[this.diaAtual] = dados.workout;
 
 
-  console.log('[✅] Fixed Dailies:', this.dailyQuests);
-  console.log('[✅] Daily Huntings:', this.dailyHuntings);
-  console.log('[✅] Weekly Huntings:', this.weeklyHuntings);
+  console.log('[✅] Fixed Dailies:', this.fixedQuests);
+  console.log('[✅] Huntings:', this.huntingQuests);
 }
 
 async carregarQuestsParaExibicao() {
   const {
-    dailyQuests,
-    weeklyQuests,
-    dailyHuntingQuests,
-    weeklyHuntingQuests,
+    fixedQuests,
+    huntingQuests,
   } = await this.userDataService.carregarQuestsDoDia();
 
-  this.dailyQuests = dailyQuests;
-  this.weeklyQuests = weeklyQuests;
-  this.dailyHuntings = dailyHuntingQuests;
-  this.weeklyHuntings = weeklyHuntingQuests;
+  this.fixedQuests = fixedQuests;
+  this.huntingQuests = huntingQuests;
 }
 // Xp e Level
 
@@ -324,29 +330,21 @@ async toggleRefeicao(refeicao: Meal) {
 }
 
 
-  async toggleDailyHunting(quest: QuestInstance) {
+  async toggleHuntingQuest(quest: QuestInstance) {
   this.comTravaDeTempo(async () => {
     const novaConclusao = !quest.concluida;
     await this.userDataService.toggleConclusaoHunting(quest.id, novaConclusao);
 
-    const xp = novaConclusao ? 20 : -20;
+    // XP baseado na categoria, mesmo que não haja mais daily/weekly no model
+    const xp = quest.categoria === 'daily'
+      ? (novaConclusao ? 20 : -20)
+      : (novaConclusao ? 40 : -40);
+
     this.atualizarXPNoFront(xp);
 
-    const { dailyHuntingQuests } = await this.userDataService.carregarQuestsDoDia();
-    this.dailyHuntings = dailyHuntingQuests;
-  });
-}
-
-async toggleWeeklyHunting(quest: QuestInstance) {
-  this.comTravaDeTempo(async () => {
-    const novaConclusao = !quest.concluida;
-    await this.userDataService.toggleConclusaoHunting(quest.id, novaConclusao);
-
-    const xp = novaConclusao ? 40 : -40;
-    this.atualizarXPNoFront(xp);
-
-    const { weeklyHuntingQuests } = await this.userDataService.carregarQuestsDoDia();
-    this.weeklyHuntings = weeklyHuntingQuests;
+    // Agora retorna apenas huntingQuests unificado
+    const { huntingQuests } = await this.userDataService.carregarQuestsDoDia();
+    this.huntingQuests = huntingQuests;
   });
 }
 
@@ -361,9 +359,9 @@ async toggleWeeklyHunting(quest: QuestInstance) {
 
     this.atualizarXPNoFront(xp);
 
-    const { dailyQuests, weeklyQuests } = await this.userDataService.carregarQuestsDoDia();
-    this.dailyQuests = dailyQuests;
-    this.weeklyQuests = weeklyQuests;
+    // Agora retorna apenas fixedQuests unificado
+    const { fixedQuests } = await this.userDataService.carregarQuestsDoDia();
+    this.fixedQuests = fixedQuests;
   });
 }
 

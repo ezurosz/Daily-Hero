@@ -1,1 +1,320 @@
-<p>missoes works!</p>
+<div class="page">
+  <mat-card class="card">
+    <div class="header">
+      <h2>Missões</h2>
+      <div class="header-actions">
+        <button mat-stroked-button (click)="openFixedEditor()">
+          <mat-icon>add</mat-icon>
+          Nova fixa
+        </button>
+        <button mat-flat-button color="primary" (click)="openHuntingEditor()">
+          <mat-icon>add_task</mat-icon>
+          Nova hunting
+        </button>
+      </div>
+    </div>
+
+    <mat-tab-group>
+
+      <!-- ================== HUNTINGS (HOJE) ================== -->
+      <mat-tab label="Huntings (hoje)">
+        <div class="list-section">
+
+          <!-- Diárias -->
+          <section *ngIf="hasDailyHunting">
+            <h3>Hunting Diárias</h3>
+            <mat-list class="list">
+              <mat-list-item class="row-item" *ngFor="let q of dailyHunting" (click)="toggleHuntingQuest(q)">
+                <div class="row">
+                  <div class="info">
+                    <div class="title" [class.done]="q.concluida">{{ q.descricao }}</div>
+                    <div class="meta">
+                      {{ q.level }}
+                      <span class="dot">•</span>
+                      <ng-container *ngIf="q.tags?.length; else noTag1">
+                        <span class="tag" *ngFor="let t of q.tags">{{ t }}</span>
+                      </ng-container>
+                      <ng-template #noTag1><span class="muted">Sem tags</span></ng-template>
+                      <span class="dot">•</span>
+                      vence {{ q.vencimento | date:'short' }}
+                      <span *ngIf="q.expirado" class="expirada">• Atrasada</span>
+                    </div>
+                  </div>
+                  <span class="sp"></span>
+                  <button mat-icon-button (click)="$event.stopPropagation(); openHuntingEditor(q)" aria-label="Editar">
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                  <button mat-icon-button color="warn" (click)="$event.stopPropagation(); removeHunting(q)" aria-label="Remover">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </div>
+              </mat-list-item>
+            </mat-list>
+          </section>
+
+          <!-- Semanais -->
+          <section *ngIf="hasWeeklyHunting">
+            <h3>Hunting Semanais</h3>
+            <mat-list class="list">
+              <mat-list-item class="row-item" *ngFor="let q of weeklyHunting" (click)="toggleHuntingQuest(q)">
+                <div class="row">
+                  <div class="info">
+                    <div class="title" [class.done]="q.concluida">{{ q.descricao }}</div>
+                    <div class="meta">
+                      {{ q.level }}
+                      <span class="dot">•</span>
+                      <ng-container *ngIf="q.tags?.length; else noTag2">
+                        <span class="tag" *ngFor="let t of q.tags">{{ t }}</span>
+                      </ng-container>
+                      <ng-template #noTag2><span class="muted">Sem tags</span></ng-template>
+                      <span class="dot">•</span>
+                      vence {{ q.vencimento | date:'short' }}
+                      <span *ngIf="q.expirado" class="expirada">• Atrasada</span>
+                    </div>
+                  </div>
+                  <span class="sp"></span>
+                  <button mat-icon-button (click)="$event.stopPropagation(); openHuntingEditor(q)" aria-label="Editar">
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                  <button mat-icon-button color="warn" (click)="$event.stopPropagation(); removeHunting(q)" aria-label="Remover">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </div>
+              </mat-list-item>
+            </mat-list>
+          </section>
+
+          <p *ngIf="!hasDailyHunting && !hasWeeklyHunting" class="empty">Nenhuma hunting para hoje.</p>
+        </div>
+      </mat-tab>
+
+      <!-- ================== FIXAS (CATÁLOGO) ================== -->
+      <mat-tab label="Fixas (catálogo)">
+        <div class="list-section">
+
+          <!-- Diárias (CATÁLOGO) -->
+          <section *ngIf="dailyFixedTemplate">
+            <h3>Fixas Diárias</h3>
+            <mat-list class="list">
+              <mat-list-item class="row-item" *ngFor="let q of dailyFixedTemplate" (click)="$event.stopPropagation()">
+                <div class="row">
+                  <div class="info">
+                    <div class="title">{{ q.descricao }}</div>
+                    <div class="meta">
+                      {{ q.level }}
+                      <span class="dot">•</span>
+                      <ng-container *ngIf="q.tags?.length; else noTag3">
+                        <span class="tag" *ngFor="let t of q.tags">{{ t }}</span>
+                      </ng-container>
+                      <ng-template #noTag3><span class="muted">Sem tags</span></ng-template>
+                    </div>
+                  </div>
+                  <span class="sp"></span>
+                  <button mat-icon-button (click)="openFixedEditor(q)" aria-label="Editar">
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                  <button mat-icon-button color="warn" (click)="removeFixed(q)" aria-label="Remover">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </div>
+              </mat-list-item>
+            </mat-list>
+          </section>
+
+          <!-- Semanais (CATÁLOGO) -->
+          <section *ngIf="weeklyFixedTemplate">
+            <h3>Fixas Semanais</h3>
+            <mat-list class="list">
+              <mat-list-item class="row-item" *ngFor="let q of weeklyFixedTemplate" (click)="$event.stopPropagation()">
+                <div class="row">
+                  <div class="info">
+                    <div class="title">{{ q.descricao }}</div>
+                    <div class="meta">
+                      {{ q.level }}
+                      <span class="dot">•</span>
+                      <ng-container *ngIf="q.tags?.length; else noTag4">
+                        <span class="tag" *ngFor="let t of q.tags">{{ t }}</span>
+                      </ng-container>
+                      <ng-template #noTag4><span class="muted">Sem tags</span></ng-template>
+                    </div>
+                  </div>
+                  <span class="sp"></span>
+                  <button mat-icon-button (click)="openFixedEditor(q)" aria-label="Editar">
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                  <button mat-icon-button color="warn" (click)="removeFixed(q)" aria-label="Remover">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </div>
+              </mat-list-item>
+            </mat-list>
+          </section>
+
+          <p *ngIf="!dailyFixedTemplate && !weeklyFixedTemplate" class="empty">Nenhuma fixa cadastrada.</p>
+        </div>
+      </mat-tab>
+
+      <!-- =========== FIXAS INSTANCIADAS (HOJE) =========== -->
+      <mat-tab label="Fixas instanciadas (hoje)">
+        <div class="actions">
+          <button mat-stroked-button (click)="ensureAndLoadFixedInstances()">Recarregar instâncias de hoje</button>
+          <span class="hint">Sincroniza a partir do catálogo.</span>
+        </div>
+
+        <div class="list-section">
+          <!-- Diárias -->
+          <section *ngIf="dailyFixed.length">
+            <h3>Diárias</h3>
+            <mat-list class="list">
+              <mat-list-item class="row-item" *ngFor="let q of dailyFixed" (click)="toggleFixedQuest(q)">
+                <div class="row">
+                  <div class="info">
+                    <div class="title" [class.done]="q.concluida">{{ q.descricao }}</div>
+                    <div class="meta">
+                      {{ q.level }}
+                      <span class="dot">•</span>
+                      <ng-container *ngIf="q.tags?.length; else noTag5">
+                        <span class="tag" *ngFor="let t of q.tags">{{ t }}</span>
+                      </ng-container>
+                      <ng-template #noTag5><span class="muted">Sem tags</span></ng-template>
+                      <span class="dot">•</span>
+                      vence {{ q.vencimento | date:'short' }}
+                      <span *ngIf="q.expirado" class="expirada">• Atrasada</span>
+                    </div>
+                  </div>
+                </div>
+              </mat-list-item>
+            </mat-list>
+          </section>
+
+          <!-- Semanais -->
+          <section *ngIf="weeklyFixed.length">
+            <h3>Semanais</h3>
+            <mat-list class="list">
+              <mat-list-item class="row-item" *ngFor="let q of weeklyFixed" (click)="toggleFixedQuest(q)">
+                <div class="row">
+                  <div class="info">
+                    <div class="title" [class.done]="q.concluida">{{ q.descricao }}</div>
+                    <div class="meta">
+                      {{ q.level }}
+                      <span class="dot">•</span>
+                      <ng-container *ngIf="q.tags?.length; else noTag6">
+                        <span class="tag" *ngFor="let t of q.tags">{{ t }}</span>
+                      </ng-container>
+                      <ng-template #noTag6><span class="muted">Sem tags</span></ng-template>
+                      <span class="dot">•</span>
+                      vence {{ q.vencimento | date:'short' }}
+                      <span *ngIf="q.expirado" class="expirada">• Atrasada</span>
+                    </div>
+                  </div>
+                </div>
+              </mat-list-item>
+            </mat-list>
+          </section>
+
+          <p *ngIf="!dailyFixed.length && !weeklyFixed.length" class="empty">Nenhuma fixa instanciada hoje.</p>
+        </div>
+      </mat-tab>
+    </mat-tab-group>
+  </mat-card>
+</div>
+
+<!-- ================== DIALOG: FIXED ================== -->
+<ng-template #fixedDialog>
+  <h2 mat-dialog-title>{{ editingFixedId ? 'Editar fixa' : 'Nova fixa' }}</h2>
+  <mat-dialog-content>
+    <form [formGroup]="fixedForm" class="dialog-form">
+      <mat-form-field appearance="fill">
+        <mat-label>Descrição</mat-label>
+        <input matInput formControlName="descricao" />
+      </mat-form-field>
+
+      <div class="row-2">
+        <mat-form-field appearance="fill">
+          <mat-label>Categoria</mat-label>
+          <mat-select formControlName="categoria">
+            <mat-option value="daily">Diária</mat-option>
+            <mat-option value="weekly">Semanal</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="fill">
+          <mat-label>Nível</mat-label>
+          <mat-select formControlName="level">
+            <mat-option value="fácil">Fácil</mat-option>
+            <mat-option value="médio">Médio</mat-option>
+            <mat-option value="difícil">Difícil</mat-option>
+            <mat-option value="insano">Insano</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <mat-form-field appearance="fill">
+        <mat-label>Tags (vírgula)</mat-label>
+        <input matInput formControlName="tagsStr" placeholder="Social, Estudo, Fé, Força, Consciência, Padrão" />
+      </mat-form-field>
+
+      <mat-checkbox *ngIf="editingFixedId" formControlName="replicateToday">
+        Aplicar alterações nas instâncias de hoje
+      </mat-checkbox>
+    </form>
+  </mat-dialog-content>
+
+  <mat-dialog-actions align="end">
+    <button mat-button mat-dialog-close>Cancelar</button>
+    <button mat-flat-button color="primary" (click)="saveFixed()" [disabled]="fixedForm.invalid">
+      Salvar
+    </button>
+  </mat-dialog-actions>
+</ng-template>
+
+<!-- ================== DIALOG: HUNTING ================== -->
+<ng-template #huntingDialog>
+  <h2 mat-dialog-title>{{ editingHuntingId ? 'Editar hunting' : 'Nova hunting' }}</h2>
+  <mat-dialog-content>
+    <form [formGroup]="huntingForm" class="dialog-form">
+      <mat-form-field appearance="fill">
+        <mat-label>Descrição</mat-label>
+        <input matInput formControlName="descricao" />
+      </mat-form-field>
+
+      <div class="row-2">
+        <mat-form-field appearance="fill">
+          <mat-label>Nível</mat-label>
+          <mat-select formControlName="level">
+            <mat-option value="fácil">Fácil</mat-option>
+            <mat-option value="médio">Médio</mat-option>
+            <mat-option value="difícil">Difícil</mat-option>
+            <mat-option value="insano">Insano</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="fill">
+          <mat-label>Categoria</mat-label>
+          <mat-select formControlName="categoria">
+            <mat-option value="daily">Diária</mat-option>
+            <mat-option value="weekly">Semanal</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <!-- <mat-form-field appearance="fill">
+        <mat-label>Vencimento (automático)</mat-label>
+          <input matInput type="datetime-local" formControlName="vencimento" readonly />
+        <mat-hint>Muda conforme a categoria</mat-hint>
+      </mat-form-field> -->
+
+      <mat-form-field appearance="fill">
+        <mat-label>Tags (vírgula)</mat-label>
+        <input matInput formControlName="tagsStr" placeholder="Social, Estudo, Fé, Força, Consciência, Padrão" />
+      </mat-form-field>
+    </form>
+  </mat-dialog-content>
+
+  <mat-dialog-actions align="end">
+    <button mat-button mat-dialog-close>Cancelar</button>
+    <button mat-flat-button color="primary" (click)="saveHunting()" [disabled]="huntingForm.invalid">
+      Salvar
+    </button>
+  </mat-dialog-actions>
+</ng-template>

@@ -1,0 +1,75 @@
+.page { padding: 16px; }
+.card { max-width: 1100px; margin: 0 auto; }
+
+.header {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-bottom: 8px;
+}
+.header-actions { display: flex; gap: 8px; }
+
+.list-section { display: grid; gap: 8px; }
+h3 { margin: 12px 0 8px; font-weight: 600; }
+
+.list { background: transparent; padding: 0; }
+.row-item { padding: 0; }
+
+/* linha da lista */
+.row {
+  display: flex; align-items: flex-start; gap: 8px;
+  width: 100%; padding: 10px 8px; border-radius: 12px;
+  transition: background .15s ease, box-shadow .15s ease;
+}
+.row:hover { background: rgba(0,0,0,0.04); }
+.sp { flex: 1; }
+
+/* garante que nada seja cortado */
+.info { display: grid; gap: 4px; min-width: 0; }
+.title { font-weight: 600; line-height: 1.2; word-break: break-word; white-space: normal; }
+.meta {
+  font-size: 12px; opacity: .8; display: flex; flex-wrap: wrap; gap: 6px;
+  line-height: 1.2; min-width: 0; word-break: break-word;
+}
+.dot { opacity: .5; }
+.muted { opacity: .6; font-style: italic; }
+.done { text-decoration: line-through; opacity: .65; }
+.expirada { color: #c62828; font-weight: 600; }
+
+/* tags */
+.tag {
+  display: inline-block; padding: 2px 8px; border-radius: 999px;
+  font-size: 11px; background: rgba(0,0,0,0.08);
+}
+
+/* botões não espremem conteúdo */
+.mat-icon-button { flex: 0 0 auto; }
+
+/* mat-list internals: força largura total e sem cortes */
+::ng-deep .mat-mdc-list-item .mdc-list-item__content {
+  width: 100%;
+}
+
+/* Dialog */
+.dialog-form { display: grid; gap: 12px; width: 520px; max-width: 100%; }
+.row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+mat-dialog-content { max-height: 75vh; overflow: auto; }
+
+@media (max-width: 699px) {
+  .row-2 { grid-template-columns: 1fr; }
+}
+
+/* ====== Breakpoints ====== */
+@media (min-width: 601px) {
+  .card {
+    margin: 12px auto;
+    max-width: 1100px;
+    border-radius: 12px;
+    box-shadow: var(--mat-elevation-2);
+  }
+  .row-2 { grid-template-columns: 1fr 1fr; }
+}
+
+/* ====== Dark theme helpers (opcional) ====== */
+@media (prefers-color-scheme: dark) {
+  .tag { background: rgba(255,255,255,0.12); }
+  .row { border-bottom-color: rgba(255,255,255,0.08); }
+}

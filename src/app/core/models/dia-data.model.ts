@@ -15,8 +15,6 @@ export interface DiaData {
       exercicios: Exercicio[];
     };
   };
-  dailyHuntingQuests: HuntingTemplate[];
-  weeklyHuntingQuests: HuntingTemplate[];
-  dailyQuests: QuestInstance[];
-  weeklyQuests: QuestInstance[];
+  huntingQuests: HuntingTemplate[];
+  fixedQuests: QuestInstance[];
 }
