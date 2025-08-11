@@ -16,7 +16,7 @@ import { BaseChartDirective, provideCharts, withDefaultRegisterables } from 'ng2
 import { AuthService } from '../../auth/auth.service';
 import { UserDataService } from '../../core/services/firebase/user-data';
 import { Meal } from '../../core/models/meal.model';
-import { Quest } from '../../core/models/quest.model';
+import { QuestInstance } from '../../core/models/quest-instance.model';
 import { MatChipsModule } from '@angular/material/chips';
 import { RouterModule } from '@angular/router';
 import { getDoc } from 'firebase/firestore';
@@ -76,10 +76,10 @@ export class PagePage implements OnInit, OnDestroy {
   litros = [1, 2, 3, 4];
   treinos: string[] = [];
 
-  dailyHuntings: Quest[] = [];
-  weeklyHuntings: Quest[] = [];
-  dailyQuests: Quest[] = [];
-  weeklyQuests: Quest[] = [];
+  dailyHuntings: QuestInstance[] = [];
+  weeklyHuntings: QuestInstance[] = [];
+  dailyQuests: QuestInstance[] = [];
+  weeklyQuests: QuestInstance[] = [];
 
   mostrarXpTemporario = false;
   xpGanhoTemporario = 0;
@@ -324,7 +324,7 @@ async toggleRefeicao(refeicao: Meal) {
 }
 
 
-  async toggleDailyHunting(quest: Quest) {
+  async toggleDailyHunting(quest: QuestInstance) {
   this.comTravaDeTempo(async () => {
     const novaConclusao = !quest.concluida;
     await this.userDataService.toggleConclusaoHunting(quest.id, novaConclusao);
@@ -337,7 +337,7 @@ async toggleRefeicao(refeicao: Meal) {
   });
 }
 
-async toggleWeeklyHunting(quest: Quest) {
+async toggleWeeklyHunting(quest: QuestInstance) {
   this.comTravaDeTempo(async () => {
     const novaConclusao = !quest.concluida;
     await this.userDataService.toggleConclusaoHunting(quest.id, novaConclusao);
@@ -350,7 +350,7 @@ async toggleWeeklyHunting(quest: Quest) {
   });
 }
 
-  async toggleFixedQuest(quest: Quest) {
+  async toggleFixedQuest(quest: QuestInstance) {
   this.comTravaDeTempo(async () => {
     const novaConclusao = !quest.concluida;
     await this.userDataService.toggleConclusaoFixedQuest(quest.id, novaConclusao);

@@ -1,6 +1,7 @@
-import { Quest } from './quest.model';
+import { QuestInstance } from './quest-instance.model';
 import { Meal } from './meal.model';
 import { Exercicio } from './treino.model'; // já existente
+import { HuntingTemplate } from './hunting-template';
 
 export interface DiaData {
   nivelNoDia: number;
@@ -14,8 +15,8 @@ export interface DiaData {
       exercicios: Exercicio[];
     };
   };
-  dailyHuntingQuests: Quest[];
-  weeklyHuntingQuests: Quest[];
-  dailyQuests: Quest[];
-  weeklyQuests: Quest[];
+  dailyHuntingQuests: HuntingTemplate[];
+  weeklyHuntingQuests: HuntingTemplate[];
+  dailyQuests: QuestInstance[];
+  weeklyQuests: QuestInstance[];
 }

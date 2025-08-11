@@ -17,8 +17,9 @@ import {
   docData
 } from '@angular/fire/firestore';
 import { Auth } from '@angular/fire/auth';
-import { FixedQuest } from '../../models/fixed-quest.model';
-import { Quest } from '../../models/quest.model';
+import { FixedQuestTemplate } from '../../models/fixed-quest-template.model';
+import { QuestInstance } from '../../models/quest-instance.model';
+import { HuntingTemplate } from '../../models/hunting-template';
 import { DiaData } from '../../models/dia-data.model';
 import { firstValueFrom, Observable } from 'rxjs';
 import { user } from 'rxfire/auth';
@@ -37,10 +38,10 @@ function questIgual(
 @Injectable({ providedIn: 'root' })
 export class UserDataService {
 
-  dailyFixedQuests: FixedQuest[] = [];
-  weeklyFixedQuests: FixedQuest[] = [];
-  dailyHuntingQuests: Quest[] = [];
-  weeklyHuntingQuests: Quest[] = [];
+  dailyFixedQuests: FixedQuestTemplate[] = [];
+  weeklyFixedQuests: FixedQuestTemplate[] = [];
+  dailyHuntingQuests: QuestInstance[] = [];
+  weeklyHuntingQuests: QuestInstance[] = [];
   private firestore = inject(Firestore);
   private auth = inject(Auth);
 
@@ -120,10 +121,10 @@ export class UserDataService {
       ],
       waterIntake: 0,
       workout: null,
-      dailyHuntingQuests: [] as Quest[],
-      weeklyHuntingQuests: [] as Quest[],
-      dailyQuests: [] as Quest[],   // inicializa vazio
-      weeklyQuests: [] as Quest[],  // inicializa vazio
+      dailyHuntingQuests: [] as HuntingTemplate[],
+      weeklyHuntingQuests: [] as HuntingTemplate[],
+      dailyQuests: [] as QuestInstance[],   // inicializa vazio
+      weeklyQuests: [] as QuestInstance[],  // inicializa vazio
     };
 
     await setDoc(diaRef, novoDia);
@@ -147,8 +148,8 @@ async initUserDataIfNeeded() {
     nivel: 1,
     xp: 0,
     fixedQuests: {
-      daily: [] as FixedQuest[],
-      weekly: [] as FixedQuest[],
+      daily: [] as FixedQuestTemplate[],
+      weekly: [] as FixedQuestTemplate[],
     },
     workoutList: ['Treino A', 'Treino B', 'Treino C', 'Treino D'],
     xpHistory: { lastEntry: null },
@@ -163,17 +164,17 @@ async initUserDataIfNeeded() {
 
 
   // 📘 Lógica: Daily Quests ================================
-  dailyQuests: FixedQuest[] = [];
-  weeklyQuests: FixedQuest[] = [];
+  dailyQuests: FixedQuestTemplate[] = [];
+  weeklyQuests: FixedQuestTemplate[] = [];
 
   async addDefaultFixedQuests() {
   const userRef = await this.getUserDocRef();
   const snap = await getDoc(userRef);
 
-  const existentesDaily = (snap.data()?.['dailyFixedQuests'] ?? []) as FixedQuest[];
-  const existentesWeekly = (snap.data()?.['weeklyFixedQuests'] ?? []) as FixedQuest[];
+  const existentesDaily = (snap.data()?.['dailyFixedQuests'] ?? []) as FixedQuestTemplate[];
+  const existentesWeekly = (snap.data()?.['weeklyFixedQuests'] ?? []) as FixedQuestTemplate[];
 
-  const novasDaily: FixedQuest[] = [
+  const novasDaily: FixedQuestTemplate[] = [
     {
       id: crypto.randomUUID(),
       descricao: 'Aniversário de 1 amigo',
@@ -184,7 +185,7 @@ async initUserDataIfNeeded() {
     }
   ];
 
-  const novasWeekly: FixedQuest[] = [
+  const novasWeekly: FixedQuestTemplate[] = [
     {
       id: crypto.randomUUID(),
       descricao: 'Limpar armário',
@@ -212,8 +213,8 @@ async initUserDataIfNeeded() {
   const snapshot = await getDoc(ref);
   const dados = snapshot.data();
 
-  this.dailyFixedQuests = (dados?.['fixedQuests']?.['daily'] ?? []) as FixedQuest[];
-  this.weeklyFixedQuests = (dados?.['fixedQuests']?.['weekly'] ?? []) as FixedQuest[];
+  this.dailyFixedQuests = (dados?.['fixedQuests']?.['daily'] ?? []) as FixedQuestTemplate[];
+  this.weeklyFixedQuests = (dados?.['fixedQuests']?.['weekly'] ?? []) as FixedQuestTemplate[];
 
   console.log('[📌 FixedQuests carregadas]', {
     daily: this.dailyFixedQuests,
@@ -228,20 +229,20 @@ async initUserDataIfNeeded() {
   const diaSnap = await getDoc(diaRef);
   const diaData = diaSnap.data() ?? {};
 
-  const jaInstanciadasDaily = (diaData['dailyQuests'] ?? []) as FixedQuest[];
-  const jaInstanciadasWeekly = (diaData['weeklyQuests'] ?? []) as FixedQuest[];
+  const jaInstanciadasDaily = (diaData['dailyQuests'] ?? []) as FixedQuestTemplate[];
+  const jaInstanciadasWeekly = (diaData['weeklyQuests'] ?? []) as FixedQuestTemplate[];
 
   const userRef = await this.getUserDocRef();
   const userSnap = await getDoc(userRef);
   const dataUser = userSnap.data() ?? {};
 
-  const allDaily = (dataUser['fixedQuests']?.daily ?? []) as FixedQuest[];
-  const allWeekly = (dataUser['fixedQuests']?.weekly ?? []) as FixedQuest[];
+  const allDaily = (dataUser['fixedQuests']?.daily ?? []) as FixedQuestTemplate[];
+  const allWeekly = (dataUser['fixedQuests']?.weekly ?? []) as FixedQuestTemplate[];
 
   const fixasDaily = allDaily.filter(q => q.fixa);
   const fixasWeekly = allWeekly.filter(q => q.fixa);
 
-  const novasDaily: Quest[] = fixasDaily
+  const novasDaily: QuestInstance[] = fixasDaily
   .filter((fixa) =>
     !jaInstanciadasDaily.some((inst) => questIgual(fixa, inst))
   )
@@ -257,7 +258,7 @@ async initUserDataIfNeeded() {
     expirado: false,
   }));
 
-const novasWeekly: Quest[] = fixasWeekly
+const novasWeekly: QuestInstance[] = fixasWeekly
   .filter((fixa) =>
     !jaInstanciadasWeekly.some((inst) => questIgual(fixa, inst))
   )
@@ -289,16 +290,16 @@ const novasWeekly: Quest[] = fixasWeekly
 }
 
 // 🎯 Lógica: Hunting Quests =============================
-huntingQuests: Quest[] = [];
+huntingQuests: HuntingTemplate[] = [];
 
 async addDefaultHuntingQuests() {
   const userRef = await this.getUserDocRef(); // Referência ao doc do usuário
   const snapshot = await getDoc(userRef);
   const data = snapshot.data() ?? {};
 
-  const existentes = (data['huntingQuests'] ?? []) as Quest[];
+  const existentes = (data['huntingQuests'] ?? []) as HuntingTemplate[];
 
-  const novasDaily: Quest[] = [
+  const novasDaily: HuntingTemplate[] = [
     {
       id: crypto.randomUUID(),
       descricao: 'Rezar por 10 minutos',
@@ -312,7 +313,7 @@ async addDefaultHuntingQuests() {
     },
   ];
 
-  const novasWeekly: Quest[] = [
+  const novasWeekly: HuntingTemplate[] = [
     {
       id: crypto.randomUUID(),
       descricao: 'Estudar 3 horas no sábado',
@@ -351,14 +352,14 @@ async instanciarHuntingQuests() {
   const diaSnap = await getDoc(diaRef);
   const diaData = diaSnap.data() ?? {};
 
-  const jaInstanciadasDaily = (diaData['dailyHuntingQuests'] ?? []) as Quest[];
-  const jaInstanciadasWeekly = (diaData['weeklyHuntingQuests'] ?? []) as Quest[];
+  const jaInstanciadasDaily = (diaData['dailyHuntingQuests'] ?? []) as QuestInstance[];
+  const jaInstanciadasWeekly = (diaData['weeklyHuntingQuests'] ?? []) as QuestInstance[];
 
   const userRef = await this.getUserDocRef();
   const userSnap = await getDoc(userRef);
   const userData = userSnap.data() ?? {};
 
-  const todasHunting = (userData['huntingQuests'] ?? []) as Quest[];
+  const todasHunting = (userData['huntingQuests'] ?? []) as QuestInstance[];
 
   const novasDaily = todasHunting
     .filter(q => q.categoria === 'daily')
@@ -405,8 +406,8 @@ async carregarHuntingQuests(): Promise<void> {
   const dados = snapshot.data();
   if (!dados) return;
 
-  this.dailyHuntingQuests = (dados['dailyHuntingQuests'] ?? []) as Quest[];
-  this.weeklyHuntingQuests = (dados['weeklyHuntingQuests'] ?? []) as Quest[];
+  this.dailyHuntingQuests = (dados['dailyHuntingQuests'] ?? []) as QuestInstance[];
+  this.weeklyHuntingQuests = (dados['weeklyHuntingQuests'] ?? []) as QuestInstance[];
 
   // ⚠️ Agenda vencimento para todas
   this.dailyHuntingQuests.forEach(q => this.agendarExpiracao(q, 'dailyHunting'));
@@ -427,11 +428,11 @@ async toggleConclusaoFixedQuest(questId: string, concluida: boolean) {
   const data = snapshot.data() as DiaData;
 
   // Decide se a quest é daily ou weekly
-  const isDaily = data.dailyQuests.some((q: Quest) => q.id === questId);
+  const isDaily = data.dailyQuests.some((q: QuestInstance) => q.id === questId);
   const listKey = isDaily ? 'dailyQuests' : 'weeklyQuests';
 
   // Atualiza a quest com base no ID
-  const atualizadas = (data[listKey] as Quest[]).map((q: Quest) =>
+  const atualizadas = (data[listKey] as QuestInstance[]).map((q: QuestInstance) =>
     q.id === questId
       ? {
           ...q,
@@ -464,11 +465,11 @@ async toggleConclusaoFixedQuest(questId: string, concluida: boolean) {
   const data = snapshot.data() as DiaData;
 
   // Decide em qual array a quest está
-  const isDaily = data.dailyHuntingQuests.some((q: Quest) => q.id === questId);
+  const isDaily = data.dailyHuntingQuests.some((q: QuestInstance) => q.id === questId);
   const listKey = isDaily ? 'dailyHuntingQuests' : 'weeklyHuntingQuests';
 
   // Mapeia e atualiza apenas a quest clicada
-  const huntingAtualizadas = (data[listKey] as Quest[]).map((q: Quest) =>
+  const huntingAtualizadas = (data[listKey] as QuestInstance[]).map((q: QuestInstance) =>
     q.id === questId
       ? { ...q, concluida, checkDate: new Date().toISOString() }
       : q
@@ -478,7 +479,7 @@ async toggleConclusaoFixedQuest(questId: string, concluida: boolean) {
   await updateDoc(ref, { [listKey]: huntingAtualizadas });
 
   // Calcula XP com base na categoria da própria quest
-  const quest = huntingAtualizadas.find((q: Quest) => q.id === questId)!;
+  const quest = huntingAtualizadas.find((q: QuestInstance) => q.id === questId)!;
   let xp = 0;
   if (quest.categoria === 'daily') xp = concluida ? 20 : -20;
   else if (quest.categoria === 'weekly') xp = concluida ? 40 : -40;
@@ -605,10 +606,10 @@ async toggleConclusaoFixedQuest(questId: string, concluida: boolean) {
 
 
 async carregarQuestsDoDia(): Promise<{
-  dailyQuests: Quest[],
-  weeklyQuests: Quest[],
-  dailyHuntingQuests: Quest[],
-  weeklyHuntingQuests: Quest[]
+  dailyQuests: QuestInstance[],
+  weeklyQuests: QuestInstance[],
+  dailyHuntingQuests: QuestInstance[],
+  weeklyHuntingQuests: QuestInstance[]
 }> {
   const ref = await this.getDiaDocRef(this.dataHoje());
   const snapshot = await getDoc(ref);
@@ -665,7 +666,7 @@ async carregarQuestsDoDia(): Promise<{
 
 }
 
-  agendarExpiracao(quest: Quest, tipo: 'dailyHunting' | 'weeklyHunting') {
+  agendarExpiracao(quest: QuestInstance, tipo: 'dailyHunting' | 'weeklyHunting') {
   const agora = new Date();
   const vencimento = new Date(quest.vencimento);
 
@@ -695,7 +696,7 @@ private marcarExpiradaLocalmente(questId: string, tipo: 'dailyHunting' | 'weekly
   console.log(`⚠️ Quest expirou: ${questId}`);
 }
 
-verificarExpiradas(quests: Quest[]): Quest[] {
+verificarExpiradas(quests: QuestInstance[]): QuestInstance[] {
   const agora = Date.now();
   return quests.map((q) => {
     if (!q.concluida && !q.expirado && new Date(q.vencimento).getTime() < agora) {
@@ -709,7 +710,7 @@ verificarExpiradas(quests: Quest[]): Quest[] {
   });
 }
 
-async marcarComoExpiradaNoFirestore(quest: Quest) {
+async marcarComoExpiradaNoFirestore(quest: QuestInstance) {
   const ref = await this.getDiaDocRef(this.dataHoje());
   const snap = await getDoc(ref);
   const data = snap.data() as DiaData;
@@ -719,7 +720,7 @@ async marcarComoExpiradaNoFirestore(quest: Quest) {
               quest.categoria === 'dailyHunting' ? 'dailyHuntingQuests' :
               'weeklyHuntingQuests';
 
-  const updatedList = (data[key] ?? []).map((q: Quest) =>
+  const updatedList = (data[key] ?? []).map((q: QuestInstance) =>
     q.id === quest.id ? { ...q, expirado: true } : q
   );
 
