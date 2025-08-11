@@ -163,18 +163,21 @@ async initUserDataIfNeeded() {
 
 
 
-  // 📘 Lógica: Daily Quests ================================
-  dailyQuests: FixedQuestTemplate[] = [];
-  weeklyQuests: FixedQuestTemplate[] = [];
+  // 📘 Lógica: Fixed Quests (CATÁLOGO)
+dailyQuests: FixedQuestTemplate[] = [];
+weeklyQuests: FixedQuestTemplate[] = [];
 
-  async addDefaultFixedQuests() {
+// 📘 Lógica: Fixed Quests (CATÁLOGO UNIFICADO EM fixedQuests[])
+async addDefaultFixedQuests() {
   const userRef = await this.getUserDocRef();
   const snap = await getDoc(userRef);
+  const data = snap.data() ?? {};
 
-  const existentesDaily = (snap.data()?.['dailyFixedQuests'] ?? []) as FixedQuestTemplate[];
-  const existentesWeekly = (snap.data()?.['weeklyFixedQuests'] ?? []) as FixedQuestTemplate[];
+  // agora tudo em um único array no principal
+  const existentes = (data['fixedQuests'] ?? []) as FixedQuestTemplate[];
 
-  const novasDaily: FixedQuestTemplate[] = [
+  // defaults (já com rev:1)
+  const novas: FixedQuestTemplate[] = [
     {
       id: crypto.randomUUID(),
       descricao: 'Aniversário de 1 amigo',
@@ -182,118 +185,152 @@ async initUserDataIfNeeded() {
       level: 'fácil',
       fixa: true,
       tags: ['Social'],
-    }
-  ];
-
-  const novasWeekly: FixedQuestTemplate[] = [
+      rev: 1,
+    },
     {
       id: crypto.randomUUID(),
       descricao: 'Limpar armário',
       categoria: 'weekly',
       level: 'médio',
       fixa: true,
-    }
+      rev: 1,
+    },
   ];
 
-  const toAddDaily = novasDaily.filter(n => !existentesDaily.some(e => questIgual(n,e)));
-  const toAddWeekly = novasWeekly.filter(n => !existentesWeekly.some(e => questIgual(n,e)));
+  // evita duplicar por id OU por igualdade semântica (descricao/categoria/level)
+  const aAdicionar = novas.filter(n =>
+    !existentes.some(e =>
+      e.id === n.id ||
+      questIgual(
+        { descricao: n.descricao, categoria: n.categoria, level: n.level },
+        { descricao: e.descricao, categoria: e.categoria, level: e.level }
+      )
+    )
+  );
 
-  if (toAddDaily.length || toAddWeekly.length) {
-    await updateDoc(userRef, {
-      'fixedQuests.daily': [...existentesDaily, ...toAddDaily],
-      'fixedQuests.weekly': [...existentesWeekly, ...toAddWeekly],
-    });
-    console.log('[✅] FixedQuests padrão adicionadas');
+  if (aAdicionar.length > 0) {
+    await updateDoc(userRef, { fixedQuests: [...existentes, ...aAdicionar] });
+    const addDaily = aAdicionar.filter(q => q.categoria === 'daily').length;
+    const addWeekly = aAdicionar.filter(q => q.categoria === 'weekly').length;
+    console.log(`[✅] FixedQuests adicionadas: +${addDaily} daily, +${addWeekly} weekly`);
+  } else {
+    console.log('[ℹ️] Nenhuma FixedQuest nova a adicionar (já existiam).');
   }
 }
 
 
- async carregarFixedQuests(): Promise<void> {
+// 📘 Carrega o CATÁLOGO unificado de Fixed (principal)
+async carregarFixedQuests(): Promise<void> {
   const ref = await this.getUserDocRef();
   const snapshot = await getDoc(ref);
-  const dados = snapshot.data();
+  const dados = snapshot.data() ?? {};
 
-  this.dailyFixedQuests = (dados?.['fixedQuests']?.['daily'] ?? []) as FixedQuestTemplate[];
-  this.weeklyFixedQuests = (dados?.['fixedQuests']?.['weekly'] ?? []) as FixedQuestTemplate[];
+  const templates = (dados['fixedQuests'] ?? []) as FixedQuestTemplate[];
 
-  console.log('[📌 FixedQuests carregadas]', {
-    daily: this.dailyFixedQuests,
-    weekly: this.weeklyFixedQuests,
+  // normaliza rev (se vier undefined, trata como 1)
+  const norm = templates.map(t => ({ ...t, rev: t.rev && t.rev > 0 ? t.rev : 1 }));
+
+  // mantém compatibilidade com quem espera arrays separados em memória
+  this.dailyFixedQuests  = norm.filter(t => t.categoria === 'daily');
+  this.weeklyFixedQuests = norm.filter(t => t.categoria === 'weekly');
+
+  console.log('[📌 FixedQuests carregadas (principal)]', {
+    total: norm.length,
+    daily: this.dailyFixedQuests.length,
+    weekly: this.weeklyFixedQuests.length,
   });
 }
 
 
-  async instanciarFixedQuests() {
-  const hoje = this.dataHoje();
+  // 🏁 Instancia as FIXED no DIA usando array unificado: fixedQuests
+async instanciarFixedQuests() {
+  await this.criarDiaSeNaoExistir();
+
+  const hoje   = this.dataHoje();
   const diaRef = await this.getDiaDocRef(hoje);
   const diaSnap = await getDoc(diaRef);
   const diaData = diaSnap.data() ?? {};
 
-  const jaInstanciadasDaily = (diaData['dailyQuests'] ?? []) as FixedQuestTemplate[];
-  const jaInstanciadasWeekly = (diaData['weeklyQuests'] ?? []) as FixedQuestTemplate[];
+  // novo array unificado no dia
+  const jaInstanciadas = (diaData['fixedQuests'] ?? []) as QuestInstance[];
 
-  const userRef = await this.getUserDocRef();
+  const userRef  = await this.getUserDocRef();
   const userSnap = await getDoc(userRef);
   const dataUser = userSnap.data() ?? {};
 
-  const allDaily = (dataUser['fixedQuests']?.daily ?? []) as FixedQuestTemplate[];
+  const allDaily  = (dataUser['fixedQuests']?.daily  ?? []) as FixedQuestTemplate[];
   const allWeekly = (dataUser['fixedQuests']?.weekly ?? []) as FixedQuestTemplate[];
 
-  const fixasDaily = allDaily.filter(q => q.fixa);
+  const fixasDaily  = allDaily.filter(q => q.fixa);
   const fixasWeekly = allWeekly.filter(q => q.fixa);
 
+  // helper para não duplicar
+  const jaExiste = (tmpl: FixedQuestTemplate) =>
+    jaInstanciadas.some(inst => inst.id === tmpl.id || questIgual(tmpl, inst));
+
+  // cria instâncias com vínculo/versão e estado resetado
   const novasDaily: QuestInstance[] = fixasDaily
-  .filter((fixa) =>
-    !jaInstanciadasDaily.some((inst) => questIgual(fixa, inst))
-  )
-  .map((q) => ({
-    id: q.id,
-    descricao: q.descricao,
-    categoria: q.categoria,
-    level: q.level,
-    concluida: false,
-    checkDate: null,
-    vencimento: this.calcularVencimento('daily'),
-    tags: q.tags ?? [],
-    expirado: false,
-  }));
+    .filter(t => !jaExiste(t))
+    .map(t => ({
+      id: t.id,
 
-const novasWeekly: QuestInstance[] = fixasWeekly
-  .filter((fixa) =>
-    !jaInstanciadasWeekly.some((inst) => questIgual(fixa, inst))
-  )
-  .map((q) => ({
-    id: q.id,
-    descricao: q.descricao,
-    categoria: q.categoria,
-    level: q.level,
-    concluida: false,
-    checkDate: null,
-    vencimento: this.calcularVencimento('weekly'),
-    tags: q.tags ?? [],
-    expirado: false,
-  }));
+      // vínculo + versão aplicada
+      templateId: t.id,
+      templateType: 'fixed',
+      appliedRev: t.rev && t.rev > 0 ? t.rev : 1,
 
+      // snapshot do template
+      descricao: t.descricao,
+      categoria: 'daily',
+      level: t.level,
+      tags: t.tags ?? [],
 
-  const atualizacoes: any = {};
-  if (novasDaily.length > 0)
-    atualizacoes['dailyQuests'] = [...jaInstanciadasDaily, ...novasDaily];
-  if (novasWeekly.length > 0)
-    atualizacoes['weeklyQuests'] = [...jaInstanciadasWeekly, ...novasWeekly];
+      // estado do dia
+      vencimento: this.calcularVencimento('daily'),
+      concluida: false,
+      checkDate: null,
+      expirado: false,
+    }));
 
-  if (Object.keys(atualizacoes).length > 0) {
-    await updateDoc(diaRef, atualizacoes);
-    console.log(`[✅] ${novasDaily.length} dailies e ${novasWeekly.length} weeklies fixas adicionadas ao dia.`);
+  const novasWeekly: QuestInstance[] = fixasWeekly
+    .filter(t => !jaExiste(t))
+    .map(t => ({
+      id: t.id,
+
+      // vínculo + versão aplicada
+      templateId: t.id,
+      templateType: 'fixed',
+      appliedRev: t.rev && t.rev > 0 ? t.rev : 1,
+
+      // snapshot do template
+      descricao: t.descricao,
+      categoria: 'weekly',
+      level: t.level,
+      tags: t.tags ?? [],
+
+      // estado do dia
+      vencimento: this.calcularVencimento('weekly'),
+      concluida: false,
+      checkDate: null,
+      expirado: false,
+    }));
+
+  const novas = [...novasDaily, ...novasWeekly];
+
+  if (novas.length > 0) {
+    await updateDoc(diaRef, { fixedQuests: [...jaInstanciadas, ...novas] });
+    console.log(`[✅] Fixed instanciadas no dia (unificado): +${novas.length}`);
   } else {
     console.log('[ℹ️] Nenhuma fixed quest nova a instanciar no dia.');
   }
 }
 
+
 // 🎯 Lógica: Hunting Quests =============================
 huntingQuests: HuntingTemplate[] = [];
 
 async addDefaultHuntingQuests() {
-  const userRef = await this.getUserDocRef(); // Referência ao doc do usuário
+  const userRef = await this.getUserDocRef();
   const snapshot = await getDoc(userRef);
   const data = snapshot.data() ?? {};
 
@@ -310,6 +347,7 @@ async addDefaultHuntingQuests() {
       checkDate: null,
       tags: ['Fé'],
       expirado: false,
+      rev: 1, // NOVO
     },
   ];
 
@@ -324,80 +362,90 @@ async addDefaultHuntingQuests() {
       checkDate: null,
       tags: ['Estudo'],
       expirado: false,
+      rev: 1, // NOVO
     },
   ];
 
-  const novas = [...novasDaily, ...novasWeekly].filter(
-    (nova) =>
-      !existentes.some((existente) =>
-        questIgual(
-          { descricao: nova.descricao, categoria: nova.categoria, level: nova.level },
-          { descricao: existente.descricao, categoria: existente.categoria, level: existente.level }
-        )
+  const novasTodas = [...novasDaily, ...novasWeekly];
+
+  // Evita duplicar por id OU por igualdade semântica (descricao/categoria/level)
+  const novasFiltradas = novasTodas.filter(nova =>
+    !existentes.some(ex =>
+      ex.id === nova.id ||
+      questIgual(
+        { descricao: nova.descricao, categoria: nova.categoria, level: nova.level },
+        { descricao: ex.descricao,   categoria: ex.categoria,   level: ex.level }
       )
+    )
   );
 
-  if (novas.length > 0) {
-    const novasFinal = [...existentes, ...novas];
+  if (novasFiltradas.length > 0) {
+    const novasFinal = [...existentes, ...novasFiltradas];
     await updateDoc(userRef, { huntingQuests: novasFinal });
-    console.log(`[🟢] Hunting quests adicionadas ao doc do usuário:`, novas);
+    console.log(`[🟢] Hunting templates adicionadas ao catálogo:`, novasFiltradas);
   } else {
-    console.log('[ℹ️] Nenhuma nova hunting quest foi adicionada (já existia).');
+    console.log('[ℹ️] Nenhuma hunting nova adicionada (já existia).');
   }
 }
 
+
+// Instancia HUNTINGS no dia unificado: huntingQuests
 async instanciarHuntingQuests() {
+  await this.criarDiaSeNaoExistir();
+
   const hoje = this.dataHoje();
   const diaRef = await this.getDiaDocRef(hoje);
   const diaSnap = await getDoc(diaRef);
   const diaData = diaSnap.data() ?? {};
 
-  const jaInstanciadasDaily = (diaData['dailyHuntingQuests'] ?? []) as QuestInstance[];
-  const jaInstanciadasWeekly = (diaData['weeklyHuntingQuests'] ?? []) as QuestInstance[];
+  // novo array unificado no dia
+  const jaInstanciadas = (diaData['huntingQuests'] ?? []) as HuntingTemplate[];
 
   const userRef = await this.getUserDocRef();
   const userSnap = await getDoc(userRef);
   const userData = userSnap.data() ?? {};
 
-  const todasHunting = (userData['huntingQuests'] ?? []) as QuestInstance[];
+  // catálogo principal de huntings (seu "template" de hunting; hoje tem shape de Quest)
+  const todasHunting = (userData['huntingQuests'] ?? []) as HuntingTemplate[]; // ou HuntingTemplate
 
-  const novasDaily = todasHunting
-    .filter(q => q.categoria === 'daily')
-    .filter(q => !jaInstanciadasDaily.some(inst => questIgual(q, inst)))
-    .map(q => ({
-      ...q,
-      concluida: false,
-      expirado: false,
-      checkDate: null,
-      vencimento: q.vencimento,
-    }));
+  const novas = todasHunting
+    // evita duplicar: não cria se já existir instância com mesmo id OU conteúdo equivalente
+    .filter(t => !jaInstanciadas.some(inst => inst.id === t.id || questIgual(t, inst)))
+    // cria a instância diária mantendo vencimento do template e resetando estado
+    .map(t => {
+      const rev = (t as any).rev && (t as any).rev > 0 ? (t as any).rev : 1;
+      return {
+        id: t.id,
+        // vínculo + versão aplicada
+        templateId: t.templateId ?? t.id,
+        templateType: 'hunting' as const,
+        appliedRev: t.appliedRev ?? rev,
 
-  const novasWeekly = todasHunting
-    .filter(q => q.categoria === 'weekly')
-    .filter(q => !jaInstanciadasWeekly.some(inst => questIgual(q, inst)))
-    .map(q => ({
-      ...q,
-      concluida: false,
-      expirado: false,
-      checkDate: null,
-      vencimento: q.vencimento,
-    }));
+        // snapshot do template que aparece no dia
+        descricao: t.descricao,
+        categoria: t.categoria,
+        level: t.level,
+        tags: t.tags ?? [],
 
-  const atualizacoes: any = {};
-  if (novasDaily.length > 0)
-    atualizacoes['dailyHuntingQuests'] = [...jaInstanciadasDaily, ...novasDaily];
-  if (novasWeekly.length > 0)
-    atualizacoes['weeklyHuntingQuests'] = [...jaInstanciadasWeekly, ...novasWeekly];
+        // estado do dia
+        vencimento: t.vencimento, // se preferir recalcular: this.calcularVencimento(t.categoria)
+        concluida: false,
+        checkDate: null,
+        expirado: false,
+      } as HuntingTemplate;
+    });
 
-  if (Object.keys(atualizacoes).length > 0) {
-    await updateDoc(diaRef, atualizacoes);
-    console.log(`[✅] ${novasDaily.length} dailies e ${novasWeekly.length} weeklies hunting instanciadas.`);
+  if (novas.length > 0) {
+    await updateDoc(diaRef, { huntingQuests: [...jaInstanciadas, ...novas] });
+    console.log(`[✅] Huntings instanciadas: +${novas.length} (array unificado huntingQuests).`);
   } else {
-    console.log('[ℹ️] Nenhuma hunting quest nova a instanciar no dia.');
+    console.log('[ℹ️] Nenhuma hunting nova a instanciar no dia.');
   }
 }
 
 
+
+// Carrega HUNTINGS do dia unificado e agenda vencimento
 async carregarHuntingQuests(): Promise<void> {
   const hoje = this.dataHoje();
   const diaRef = await this.getDiaDocRef(hoje);
@@ -406,18 +454,25 @@ async carregarHuntingQuests(): Promise<void> {
   const dados = snapshot.data();
   if (!dados) return;
 
-  this.dailyHuntingQuests = (dados['dailyHuntingQuests'] ?? []) as QuestInstance[];
-  this.weeklyHuntingQuests = (dados['weeklyHuntingQuests'] ?? []) as QuestInstance[];
+  // novo array unificado no dia
+  const hunting = (dados['huntingQuests'] ?? []) as HuntingTemplate[];
 
-  // ⚠️ Agenda vencimento para todas
-  this.dailyHuntingQuests.forEach(q => this.agendarExpiracao(q, 'dailyHunting'));
-  this.weeklyHuntingQuests.forEach(q => this.agendarExpiracao(q, 'weeklyHunting'));
+  // se você mantiver as propriedades públicas de classe:
+  // this.huntingQuests = hunting;
 
-  console.log('[🎯 Hunting carregadas]', {
-    daily: this.dailyHuntingQuests,
-    weekly: this.weeklyHuntingQuests,
+  // agendar expiração respeitando a categoria (reusa sua função existente)
+  hunting.forEach(q => {
+    const tipo = q.categoria === 'daily' ? 'dailyHunting' : 'weeklyHunting';
+    this.agendarExpiracao(q, tipo as any);
+  });
+
+  console.log('[🎯 Hunting carregadas (unificado)]', {
+    total: hunting.length,
+    daily: hunting.filter(q => q.categoria === 'daily').length,
+    weekly: hunting.filter(q => q.categoria === 'weekly').length,
   });
 }
+
 
 
 

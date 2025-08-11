@@ -1,11 +1,9 @@
-export interface HuntingTemplate {
-id: string;
-categoria: 'daily' | 'weekly';
-descricao: string;
-level: 'fácil' | 'médio' | 'difícil' | 'insano';
-vencimento: string;
-concluida: boolean;
-checkDate: string | null;
-tags?: ('Social' | 'Estudo' | 'Fé' | 'Força' | 'Consciência' | 'Padrão')[];
-expirado?: boolean;
+// hunting-template.model.ts  (CATÁLOGO HUNTINGS)
+// Você disse que HuntingTemplate = "igual ao QuestInstance" (mantém campos de estado),
+
+import { QuestInstance } from "./quest-instance.model";
+
+// só vamos adicionar 'rev' para controle de versão do template.
+export interface HuntingTemplate extends QuestInstance {
+  rev?: number; // tratar como 1 quando undefined
 }
