@@ -19,13 +19,18 @@ import {
   getDocs
 } from '@angular/fire/firestore';
 import { AuthService } from '../../auth/auth.service';
-import { Treino, Exercicio, Serie } from '../../core/models/treino.model';
+
+import {
+  WorkoutPlan as Treino, // alias local só para não quebrar nomes
+  Exercicio,
+  Serie
+} from '../../core/models/treino.model';
 
 @Component({
-  selector: 'app-editar-treino',
+  selector: 'app-edit-workout',
   standalone: true,
-  templateUrl: './editar-treino.html',
-  styleUrls: ['./editar-treino.scss'],
+  templateUrl: './edit-workout.html',
+  styleUrls: ['./edit-workout.scss'],
   imports: [
     CommonModule,
     FormsModule,
@@ -37,7 +42,7 @@ import { Treino, Exercicio, Serie } from '../../core/models/treino.model';
     MatIconModule
   ],
 })
-export class EditarTreinoPage implements OnInit {
+export class EditWorkout implements OnInit {
   private firestore = inject(Firestore);
   private authService = inject(AuthService);
   private route = inject(ActivatedRoute);
@@ -49,17 +54,21 @@ export class EditarTreinoPage implements OnInit {
 
   async ngOnInit() {
     this.uid = await this.esperarUsuario();
+
     const nome = this.route.snapshot.paramMap.get('nome');
     if (!nome) return;
 
+    // Carrega exclusivamente de workoutPlan
     const userRef = doc(this.firestore, `users/${this.uid}`);
     const userSnap = await getDoc(userRef);
-    const treinos = (userSnap.data()?.['treinos'] ?? []) as Treino[];
-    const treinoEncontrado = treinos.find(t => t.nome === nome);
+    const data = (userSnap.data() ?? {}) as { workoutPlan?: Treino[] };
+    const plans: Treino[] = data.workoutPlan ?? [];
+    const treinoEncontrado = plans.find(t => t.nome === nome);
     if (!treinoEncontrado) return;
 
     this.treino = JSON.parse(JSON.stringify(treinoEncontrado));
 
+    // Se já existir estrutura no "dia", alinhar com o plano base
     const diaRef = await this.getDiaDataRef();
     const diaSnap = await getDoc(diaRef);
     if (diaSnap.exists() && diaSnap.data()?.['treinos']?.[nome]) {
@@ -69,6 +78,7 @@ export class EditarTreinoPage implements OnInit {
     await this.carregarSugestoes(nome);
   }
 
+  // ---------- utils de data/refs ----------
   private async esperarUsuario(): Promise<string> {
     let tentativas = 0;
     let uid = this.authService.getCurrentUser()?.uid;
@@ -88,29 +98,30 @@ export class EditarTreinoPage implements OnInit {
 
   private getHoje(): string {
     const agora = new Date();
-    const offset = -3;
+    const offset = -3; // America/Sao_Paulo
     agora.setHours(agora.getHours() + offset);
     return agora.toISOString().split('T')[0];
   }
 
+  // ---------- sincronização com o DOC DO DIA ----------
   private async sincronizarTreinoDoDiaComBase() {
     const diaRef = await this.getDiaDataRef();
     const snap = await getDoc(diaRef);
     if (!snap.exists()) return;
 
-    const diaData = snap.data();
+    const diaData = snap.data() as any;
     const treinoDia = diaData?.['treinos']?.[this.treino.nome];
     if (!treinoDia) return;
 
-    const estruturaAtualizada = this.treino.exercicios.map((baseExercicio, i) => {
-      const exercicioDoDia = treinoDia.exercicios?.find((e: Exercicio) => e.nome === baseExercicio.nome);
-      const seriesAtualizadas = baseExercicio.series.map((_, idx) => {
-        return exercicioDoDia?.series?.[idx] ?? { reps: 0, carga: 0 };
-      });
-      return {
-        nome: baseExercicio.nome,
-        series: seriesAtualizadas
-      };
+    const estruturaAtualizada: Exercicio[] = this.treino.exercicios.map((baseExercicio) => {
+      const exercicioDoDia: Exercicio | undefined =
+        (treinoDia.exercicios as Exercicio[] | undefined)?.find(e => e.nome === baseExercicio.nome);
+
+      const seriesAtualizadas = baseExercicio.series.map((_, idx) =>
+        exercicioDoDia?.series?.[idx] ?? { reps: 0, carga: 0 }
+      );
+
+      return { nome: baseExercicio.nome, series: seriesAtualizadas };
     });
 
     await updateDoc(diaRef, {
@@ -118,7 +129,7 @@ export class EditarTreinoPage implements OnInit {
     });
   }
 
-  private montarEstruturaDoTreinoParaHoje(): { nome: string, exercicios: Exercicio[] } {
+  private montarEstruturaDoTreinoParaHoje(): { nome: string; exercicios: Exercicio[] } {
     return {
       nome: this.treino.nome,
       exercicios: this.treino.exercicios.map(ex => ({
@@ -131,7 +142,7 @@ export class EditarTreinoPage implements OnInit {
   async salvarSerie(exercicioIndex: number, serieIndex: number) {
     const diaRef = await this.getDiaDataRef();
     const snap = await getDoc(diaRef);
-    let dataDia = snap.exists() ? snap.data() : {};
+    let dataDia = snap.exists() ? (snap.data() as any) : {};
 
     if (!dataDia['treinos']) dataDia['treinos'] = {};
     if (!dataDia['treinos'][this.treino.nome]) {
@@ -139,9 +150,10 @@ export class EditarTreinoPage implements OnInit {
     }
 
     const serie = this.treino.exercicios[exercicioIndex].series[serieIndex];
+
     if (!dataDia['treinos'][this.treino.nome].exercicios[exercicioIndex]) {
       dataDia['treinos'][this.treino.nome].exercicios[exercicioIndex] = {
-        nome: '',
+        nome: this.treino.exercicios[exercicioIndex].nome,
         series: []
       };
     }
@@ -154,19 +166,22 @@ export class EditarTreinoPage implements OnInit {
   async carregarSugestoes(treinoNome: string) {
     const diaRef = await this.getDiaDataRef();
     const snap = await getDoc(diaRef);
-    const treinoDoDia = snap.data()?.['treinos']?.[treinoNome] as Treino | undefined;
+    const treinoDoDia = (snap.data() as any)?.['treinos']?.[treinoNome] as Treino | undefined;
 
+    // Se já existe no dia, espelha no editor
     if (treinoDoDia) {
-      this.treino.exercicios = treinoDoDia.exercicios.map(ex => ({
+      this.treino.exercicios = (treinoDoDia.exercicios || []).map(ex => ({
         nome: ex.nome,
-        series: ex.series.map(s => ({ ...s }))
+        series: (ex.series || []).map(s => ({ reps: s.reps ?? 0, carga: s.carga ?? 0 }))
       }));
     }
 
     const sugestoesAnteriores = await this.buscarUltimaExecucaoDoTreino(treinoNome);
-    this.sugestoes = sugestoesAnteriores ?? this.treino.exercicios.map(ex =>
-      ex.series.map(s => ({ reps: s.reps ?? 0, carga: s.carga ?? 0 }))
-    );
+    this.sugestoes =
+      sugestoesAnteriores ??
+      this.treino.exercicios.map(ex =>
+        ex.series.map(s => ({ reps: s.reps ?? 0, carga: s.carga ?? 0 }))
+      );
   }
 
   private async buscarUltimaExecucaoDoTreino(treinoNome: string) {
@@ -174,22 +189,22 @@ export class EditarTreinoPage implements OnInit {
     const snap = await getDocs(diasRef);
 
     const documentos = snap.docs
-      .map(doc => ({ id: doc.id, data: doc.data() }))
+      .map(doc => ({ id: doc.id, data: doc.data() as any }))
       .filter(doc => doc.id < this.getHoje())
       .sort((a, b) => b.id.localeCompare(a.id));
 
     for (const doc of documentos) {
       const treino = doc.data?.['treinos']?.[treinoNome];
       if (treino) {
-        return treino.exercicios.map((ex: Exercicio) =>
-          ex.series.map(s => ({ reps: s.reps ?? 0, carga: s.carga ?? 0 }))
+        return (treino.exercicios as Exercicio[]).map((ex: Exercicio) =>
+          (ex.series || []).map(s => ({ reps: s.reps ?? 0, carga: s.carga ?? 0 }))
         );
       }
     }
-
     return null;
   }
 
+  // ---------- edição do plano base ----------
   async adicionarExercicio() {
     if (!this.novoExercicio.nome.trim()) return;
 
@@ -200,6 +215,7 @@ export class EditarTreinoPage implements OnInit {
 
     this.treino.exercicios.push(novo);
     this.sugestoes.push([{ reps: 0, carga: 0 }]);
+
     this.novoExercicio = { nome: '', series: [] };
 
     await this.salvarTreinoBase();
@@ -235,26 +251,24 @@ export class EditarTreinoPage implements OnInit {
   }
 
   private async salvarTreinoBase() {
-  const ref = doc(this.firestore, `users/${this.uid}`);
-  const snap = await getDoc(ref);
-  const dados = snap.data() ?? {};
+    const ref = doc(this.firestore, `users/${this.uid}`);
+    const snap = await getDoc(ref);
+    const dados = (snap.data() ?? {}) as { workoutPlan?: Treino[] };
 
-  const treinos = (dados['treinos'] ?? []) as Treino[];
+    const plans = (dados.workoutPlan ?? []) as Treino[];
+    const index = plans.findIndex(t => t.nome === this.treino.nome);
 
-  const index = treinos.findIndex(t => t.nome === this.treino.nome);
-  if (index >= 0) {
-    // ✅ Atualiza o treino mesmo que esteja vazio
-    treinos[index] = { ...this.treino };
-  } else {
-    treinos.push({ ...this.treino });
+    if (index >= 0) {
+      plans[index] = { ...this.treino };
+    } else {
+      plans.push({ ...this.treino });
+    }
+
+    await updateDoc(ref, {
+      workoutPlan: plans,
+      workoutList: plans.map(t => t.nome)
+    });
+
+    console.log('[Firestore] workoutPlan atualizado com:', plans);
   }
-
-  await updateDoc(ref, {
-    treinos,
-    workoutList: treinos.map(t => t.nome)
-  });
-
-  console.log('[Firestore] Treinos atualizados com:', treinos);
-}
-
 }

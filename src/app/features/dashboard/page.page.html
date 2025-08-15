@@ -335,7 +335,7 @@
     </a>
     <p>Selecione o treino feito hoje ({{ diaAtual }}):</p>
     <div class="treino-buttons">
-      <button mat-raised-button *ngFor="let treino of treinos" color="primary"
+      <button mat-raised-button *ngFor="let treino of workoutListSig()" color="primary"
               [disabled]="treinoPorDia[diaAtual] === treino"
               [class.active]="treinoPorDia[diaAtual] === treino"
               (click)="marcarTreino(treino)">

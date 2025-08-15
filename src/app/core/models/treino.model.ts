@@ -12,7 +12,7 @@ export interface Exercicio {
   observacoes?: string;
 }
 
-export interface Treino {
+export interface WorkoutPlan {
   nome: string; // Ex: "Treino A"
   exercicios: Exercicio[];
 }

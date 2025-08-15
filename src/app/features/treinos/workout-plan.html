@@ -1,0 +1,34 @@
+<div class="container">
+  <!-- Criar novo plano -->
+  <mat-card class="novo-treino">
+    <mat-form-field appearance="outline" class="w-full">
+      <mat-label>Nome do novo treino</mat-label>
+      <input matInput [(ngModel)]="novoTreino.nome" />
+    </mat-form-field>
+
+    <button mat-raised-button color="primary" (click)="adicionarTreino()">
+      Adicionar Treino
+    </button>
+  </mat-card>
+
+  <!-- Estado vazio -->
+  <mat-card class="lista-treinos empty" *ngIf="!workoutPlan?.length">
+    <p>Nenhum treino cadastrado ainda.</p>
+  </mat-card>
+
+  <!-- Lista de planos -->
+  <mat-card class="lista-treinos" *ngFor="let plano of workoutPlan">
+    <h3 class="titulo-treino" (click)="navegarParaEditar(plano.nome)">
+      {{ plano.nome }}
+    </h3>
+
+    <div class="acoes-treino">
+      <button mat-button color="warn" (click)="excluirTreino(plano.nome)">
+        Excluir
+      </button>
+      <button mat-stroked-button (click)="navegarParaEditar(plano.nome)">
+        Editar
+      </button>
+    </div>
+  </mat-card>
+</div>
