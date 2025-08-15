@@ -474,8 +474,6 @@ async carregarHuntingQuests(): Promise<void> {
 }
 
 
-
-
 // IMPORT opcional (se quiser limpar campos legados):
 // import { deleteField } from '@angular/fire/firestore';
 

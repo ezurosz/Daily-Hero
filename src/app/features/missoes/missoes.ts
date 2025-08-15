@@ -242,27 +242,114 @@ export class MissoesPageComponent implements OnInit {
     this.dialog.open(this.huntingDialogTpl, { autoFocus: true });
   }
 
+  // ===== Helpers locais p/ refletir e remover no DIA =====
+  private async reflectFixedToToday(tmpl: FixedQuestTemplate) {
+    await this.user.criarDiaSeNaoExistir();
+    const diaRef = await this.user.getDiaDocRef(this.hoje);
+    const diaSnap = await getDoc(diaRef);
+    const data = diaSnap.data() ?? {};
+    const fixed = (data['fixedQuests'] ?? []) as QuestInstance[];
+    if (!fixed.length) return;
+
+    const updated = fixed.map(inst => {
+      const same = inst.templateId === tmpl.id || inst.id === tmpl.id;
+      if (!same) return inst;
+      const categoriaMudou = inst.categoria !== tmpl.categoria;
+      return {
+        ...inst,
+        descricao: tmpl.descricao,
+        categoria: tmpl.categoria,
+        level: tmpl.level,
+        tags: tmpl.tags ?? [],
+        appliedRev: tmpl.rev ?? 1,
+        vencimento: categoriaMudou ? this.calcVencimento(tmpl.categoria as any) : inst.vencimento,
+      };
+    });
+
+    await updateDoc(diaRef, { fixedQuests: updated });
+  }
+
+  private async removeFixedFromToday(templateId: string) {
+    await this.user.criarDiaSeNaoExistir();
+    const diaRef = await this.user.getDiaDocRef(this.hoje);
+    const diaSnap = await getDoc(diaRef);
+    const data = diaSnap.data() ?? {};
+    const fixed = (data['fixedQuests'] ?? []) as QuestInstance[];
+    if (!fixed.length) return;
+
+    const filtered = fixed.filter(inst => inst.templateId !== templateId && inst.id !== templateId);
+    if (filtered.length !== fixed.length) {
+      await updateDoc(diaRef, { fixedQuests: filtered });
+    }
+  }
+
+  private async reflectHuntingToToday(tmpl: HuntingTemplate) {
+    await this.user.criarDiaSeNaoExistir();
+    const diaRef = await this.user.getDiaDocRef(this.hoje);
+    const diaSnap = await getDoc(diaRef);
+    const data = diaSnap.data() ?? {};
+    const hunts = (data['huntingQuests'] ?? []) as HuntingTemplate[];
+    if (!hunts.length) return;
+
+    const updated = hunts.map(inst => {
+      const same = (inst as any).templateId === tmpl.id || inst.id === tmpl.id;
+      if (!same) return inst;
+      return {
+        ...inst,
+        descricao: tmpl.descricao,
+        categoria: tmpl.categoria, // remova se não quiser refletir a categoria no dia
+        level: tmpl.level,
+        tags: tmpl.tags ?? [],
+        appliedRev: tmpl.rev ?? 1,
+        // mantém vencimento / concluida / expirado
+      } as HuntingTemplate;
+    });
+
+    await updateDoc(diaRef, { huntingQuests: updated });
+  }
+
+  private async removeHuntingFromToday(templateId: string) {
+    await this.user.criarDiaSeNaoExistir();
+    const diaRef = await this.user.getDiaDocRef(this.hoje);
+    const diaSnap = await getDoc(diaRef);
+    const data = diaSnap.data() ?? {};
+    const hunts = (data['huntingQuests'] ?? []) as HuntingTemplate[];
+    if (!hunts.length) return;
+
+    const filtered = hunts.filter(inst => (inst as any).templateId !== templateId && inst.id !== templateId);
+    if (filtered.length !== hunts.length) {
+      await updateDoc(diaRef, { huntingQuests: filtered });
+    }
+  }
+
   async saveFixed() {
     const v = this.fixedForm.getRawValue();
-    const newItem: FixedQuestTemplate = {
-      id: this.editingFixedId ?? crypto.randomUUID(),
-      descricao: v.descricao!,
-      categoria: v.categoria as any,
-      level: this.sanitizeLevel(v.level!),
-      fixa: true,
-      tags: this.sanitizeTags(this.parseTags(v.tagsStr!)),
-      rev: 1,
-    };
 
+    // carrega catálogo atual pra preservar 'instanciar' ao editar
     const userRef = await this.user.getUserDocRef();
     const snap = await getDoc(userRef);
     const data = snap.data() ?? {};
     const current = (data['fixedQuests'] ?? []) as FixedQuestTemplate[];
 
+    const antigo = this.editingFixedId
+      ? current.find(x => x.id === this.editingFixedId)
+      : undefined;
+
+    const newItem: FixedQuestTemplate = {
+      id: this.editingFixedId ?? crypto.randomUUID(),
+      descricao: v.descricao!,
+      categoria: v.categoria as any,
+      level: this.sanitizeLevel(v.level!),
+      fixa: antigo?.fixa ?? true, // << preserva flag
+      tags: this.sanitizeTags(this.parseTags(v.tagsStr!)),
+      rev: (antigo?.rev ?? 0) + 1,
+    };
+
     await updateDoc(userRef, { fixedQuests: [newItem, ...current.filter(x => x.id !== newItem.id)] });
 
+    // Espelha no DIA somente quando usuário marcar "replicar hoje"
     if (this.editingFixedId && v.replicateToday) {
-      await this.applyFixedTemplateToToday(newItem);
+      await this.reflectFixedToToday(newItem);
       await this.ensureAndLoadFixedInstances();
     }
 
@@ -277,7 +364,12 @@ export class MissoesPageComponent implements OnInit {
     const snap = await getDoc(userRef);
     const data = snap.data() ?? {};
     const current = (data['fixedQuests'] ?? []) as FixedQuestTemplate[];
+
     await updateDoc(userRef, { fixedQuests: current.filter(x => x.id !== q.id) });
+
+    // >>> remove também do DIA
+    await this.removeFixedFromToday(q.id);
+    await this.ensureAndLoadFixedInstances();
 
     if (this.editingFixedId === q.id) this.editingFixedId = null;
     await this.loadFixedTemplates();
@@ -287,29 +379,37 @@ export class MissoesPageComponent implements OnInit {
   async saveHunting() {
     const v = this.huntingForm.getRawValue();
 
-    // vencimento automático com base na categoria
-    const vencimentoISO = this.calcVencimento(v.categoria as 'daily' | 'weekly');
+    const userRef = await this.user.getUserDocRef();
+    const snap = await getDoc(userRef);
+    const data = snap.data() ?? {};
+    const existentes = (data['huntingQuests'] ?? []) as HuntingTemplate[];
+
+    // Em edição: preserva vencimento e instanciar
+    const antigo = this.editingHuntingId
+      ? existentes.find(x => x.id === this.editingHuntingId)
+      : undefined;
+
+    const vencimentoISO = this.editingHuntingId
+      ? (antigo?.vencimento ?? this.calcVencimento(v.categoria as 'daily' | 'weekly'))
+      : this.calcVencimento(v.categoria as 'daily' | 'weekly');
 
     const item: HuntingTemplate = {
       id: this.editingHuntingId ?? crypto.randomUUID(),
       descricao: v.descricao!,
       categoria: v.categoria as any,
       level: this.sanitizeLevel(v.level!),
-      vencimento: vencimentoISO,
-      concluida: false,
+      vencimento: vencimentoISO,                 // preservado em edição
+      concluida: false,                          // catálogo não guarda status do dia
       checkDate: null,
       expirado: false,
       tags: this.sanitizeTags(this.parseTags(v.tagsStr!)),
-      rev: 1,
+      rev: (antigo?.rev ?? 0) + 1,
     };
-
-    const userRef = await this.user.getUserDocRef();
-    const snap = await getDoc(userRef);
-    const data = snap.data() ?? {};
-    const existentes = (data['huntingQuests'] ?? []) as HuntingTemplate[];
 
     await updateDoc(userRef, { huntingQuests: [item, ...existentes.filter(x => x.id !== item.id)] });
 
+    // >>> espelha no DIA (sem mexer em vencimento nem status)
+    await this.reflectHuntingToToday(item);
     await this.ensureAndLoadHuntingsDia();
 
     this.editingHuntingId = null;
@@ -322,9 +422,13 @@ export class MissoesPageComponent implements OnInit {
     const snap = await getDoc(userRef);
     const data = snap.data() ?? {};
     const existentes = (data['huntingQuests'] ?? []) as HuntingTemplate[];
+
     await updateDoc(userRef, { huntingQuests: existentes.filter(x => x.id !== q.id) });
 
+    // >>> remove também do DIA
+    await this.removeHuntingFromToday(q.id);
     await this.ensureAndLoadHuntingsDia();
+
     if (this.editingHuntingId === q.id) this.editingHuntingId = null;
   }
 
