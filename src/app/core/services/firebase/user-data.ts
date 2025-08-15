@@ -141,15 +141,13 @@ async initUserDataIfNeeded() {
   // Se não existir, cria documento principal com fixedQuests diário/semana
   if (!snapshot.exists()) {
   await setDoc(userRef, {
-    nivel: 1,
-    xp: 0,
-    fixedQuests: {
-      daily: [] as FixedQuestTemplate[],
-      weekly: [] as FixedQuestTemplate[],
-    },
-    workoutList: ['Treino A', 'Treino B', 'Treino C', 'Treino D'],
-    xpHistory: { lastEntry: null },
-  });
+  nivel: 1,
+  xp: 0,
+  fixedQuests: [] as FixedQuestTemplate[], // << unificado
+  huntingQuests: [] as HuntingTemplate[],  // (se quiser já criar)
+  workoutList: [],
+  xpHistory: { lastEntry: null },
+});
   console.log('[✅ Firestore] Novo usuário inicializado.');
 }
  else {
@@ -390,6 +388,7 @@ async addDefaultHuntingQuests() {
 
 
 // Instancia HUNTINGS no dia unificado: huntingQuests
+// instanciarHuntingQuests()
 async instanciarHuntingQuests() {
   await this.criarDiaSeNaoExistir();
 
@@ -398,37 +397,36 @@ async instanciarHuntingQuests() {
   const diaSnap = await getDoc(diaRef);
   const diaData = diaSnap.data() ?? {};
 
-  // novo array unificado no dia
   const jaInstanciadas = (diaData['huntingQuests'] ?? []) as HuntingTemplate[];
 
-  const userRef = await this.getUserDocRef();
+  const userRef  = await this.getUserDocRef();
   const userSnap = await getDoc(userRef);
   const userData = userSnap.data() ?? {};
 
-  // catálogo principal de huntings (seu "template" de hunting; hoje tem shape de Quest)
-  const todasHunting = (userData['huntingQuests'] ?? []) as HuntingTemplate[]; // ou HuntingTemplate
+  const todasHunting = (userData['huntingQuests'] ?? []) as HuntingTemplate[];
 
-  const novas = todasHunting
-    // evita duplicar: não cria se já existir instância com mesmo id OU conteúdo equivalente
+  // **Regra nova**: só instanciar se o template não estiver concluído no catálogo
+  const elegiveis = todasHunting.filter(t => !t.concluida);
+
+  const novas = elegiveis
     .filter(t => !jaInstanciadas.some(inst => inst.id === t.id || questIgual(t, inst)))
-    // cria a instância diária mantendo vencimento do template e resetando estado
     .map(t => {
       const rev = (t as any).rev && (t as any).rev > 0 ? (t as any).rev : 1;
+
       return {
         id: t.id,
-        // vínculo + versão aplicada
         templateId: t.templateId ?? t.id,
         templateType: 'hunting' as const,
         appliedRev: t.appliedRev ?? rev,
 
-        // snapshot do template que aparece no dia
+        // snapshot
         descricao: t.descricao,
         categoria: t.categoria,
         level: t.level,
         tags: t.tags ?? [],
 
-        // estado do dia
-        vencimento: t.vencimento, // se preferir recalcular: this.calcularVencimento(t.categoria)
+        // **vencimento da instância calculado agora**, não herdado do template:
+        vencimento: this.calcularVencimento(t.categoria as 'daily'|'weekly'),
         concluida: false,
         checkDate: null,
         expirado: false,
@@ -437,11 +435,12 @@ async instanciarHuntingQuests() {
 
   if (novas.length > 0) {
     await updateDoc(diaRef, { huntingQuests: [...jaInstanciadas, ...novas] });
-    console.log(`[✅] Huntings instanciadas: +${novas.length} (array unificado huntingQuests).`);
+    console.log(`[✅] Huntings instanciadas: +${novas.length}`);
   } else {
     console.log('[ℹ️] Nenhuma hunting nova a instanciar no dia.');
   }
 }
+
 
 
 
@@ -536,6 +535,7 @@ async toggleConclusaoFixedQuest(questId: string, concluida: boolean) {
 // IMPORT opcional (se quiser limpar campos legados):
 // import { deleteField } from '@angular/fire/firestore';
 
+// toggleConclusaoHunting()
 async toggleConclusaoHunting(questId: string, concluida: boolean) {
   await this.criarDiaSeNaoExistir();
 
@@ -544,27 +544,13 @@ async toggleConclusaoHunting(questId: string, concluida: boolean) {
   const data = snapshot.data() as DiaData | undefined;
   if (!data) return;
 
-  // 1) Unifica se necessário (suporte a legado)
-  let hunting = (data.huntingQuests ?? []) as HuntingTemplate[];
-
-  // @ts-ignore - se seu type antigo ainda existir
-  const legacyDaily: HuntingTemplate[] = (data as any).dailyHuntingQuests ?? [];
-  // @ts-ignore
-  const legacyWeekly: HuntingTemplate[] = (data as any).weeklyHuntingQuests ?? [];
-  if (!hunting.length && (legacyDaily.length || legacyWeekly.length)) {
-    hunting = [...legacyDaily, ...legacyWeekly];
-    await updateDoc(ref, {
-      huntingQuests: hunting,
-      // Para remover legado de vez, descomente e adicione o import deleteField:
-      // dailyHuntingQuests: deleteField(),
-      // weeklyHuntingQuests: deleteField(),
-    });
-  }
-
+  // unificado no dia
+  const hunting = (data.huntingQuests ?? []) as HuntingTemplate[];
   if (!hunting.length) return;
 
-  // 2) Atualiza a quest no array unificado
   let xp = 0;
+
+  // 1) Atualiza instância do dia
   const atualizadas = hunting.map((q) => {
     if (q.id !== questId) return q;
 
@@ -572,6 +558,7 @@ async toggleConclusaoHunting(questId: string, concluida: boolean) {
       ...q,
       concluida,
       checkDate: concluida ? new Date().toISOString() : null,
+      // NÃO mexe no vencimento da instância do dia
     };
 
     if (q.categoria === 'daily') xp = concluida ? 20 : -20;
@@ -582,13 +569,26 @@ async toggleConclusaoHunting(questId: string, concluida: boolean) {
 
   await updateDoc(ref, { huntingQuests: atualizadas });
 
+  // 2) Atualiza o **template no catálogo** para refletir a regra de instanciamento futuro
+  const userRef  = await this.getUserDocRef();
+  const userSnap = await getDoc(userRef);
+  const userData = userSnap.data() ?? {};
+  const catalog  = (userData['huntingQuests'] ?? []) as HuntingTemplate[];
+
+  const catalogAtualizado = catalog.map(t =>
+    t.id === questId ? { ...t, concluida } : t
+  );
+  await updateDoc(userRef, { huntingQuests: catalogAtualizado });
+
+  // 3) XP
   if (xp !== 0) {
     await this.adicionarXPNoDia(xp);
     await this.atualizarXPGlobal(xp);
   }
 
-  console.log(`[✅] Hunting quest ${questId} atualizada (unificado). XP: ${xp}`);
+  console.log(`[✅] Hunting ${questId} atualizada no dia e no catálogo. XP: ${xp}`);
 }
+
 
 
   // 🍽️ Refeições, Água, Treino, XP ========================
