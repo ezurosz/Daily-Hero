@@ -21,38 +21,55 @@
 
   <!-- TOPO -->
   <div class="dashboard-top">
-    <mat-card>
-      <div class="perfil-capa">
-        <img src="https://i.imgur.com/y8JLOVP.png" alt="Avatar" />
-      </div>
+    <mat-card class="perfil-card">
 
-      <div class="perfil-info">
-        <h2>LEVEL <span class="highlight">{{ nivelAtual }}</span></h2>
-        <p>Classe: <span class="rank">E-Rank</span></p>
-        <p class="status">
-          Status:
-          <span matTooltip="XP ganho reduzido em 10% enquanto o debuff estiver ativo." class="debuff">
-            Com Debuff
-          </span>
-        </p>
-      </div>
+  <div class="perfil-container">
+    <!-- Avatar -->
+    <div class="perfil-capa"
+     [ngStyle]="{'--xp': (xpAtual / xpParaProximoNivel(nivelAtual)) * 100}">
+  <img src="https://i.imgur.com/y8JLOVP.png" alt="Avatar" />
+</div>
 
-      <!-- Conquistas -->
-      <!-- <div class="achievements-container">
-        <h3>🏆 Conquistas</h3>
-        <div class="achievements-grid">
-          <div class="achievement" *ngFor="let badge of badges">
-            <div class="diamond-background">
-              <div class="badge-icon"></div>
-            </div>
-            <div class="badge-labels">
-              <p class="badge-title">{{ badge.title }}</p>
-              <p class="badge-subtitle">{{ badge.subtitle }}</p>
-            </div>
-          </div>
+    <!-- Infos -->
+    <div class="perfil-info">
+  <h2 class="username">
+    Ezuros Lv.<span class="level-inline">{{ nivelAtual }}</span>
+  </h2>
+
+  <p>Classe: <span class="rank">Rank: E</span></p>
+
+  <p class="status">
+    Status:
+    <span
+      matTooltip="XP ganho reduzido em 10% enquanto o debuff estiver ativo."
+      class="debuff"
+    >
+      Com Debuff
+    </span>
+  </p>
+</div>
+
+  </div>
+
+  <!-- Conquistas (opcional) -->
+  <!--
+  <div class="achievements-container">
+    <h3>🏆 Conquistas</h3>
+    <div class="achievements-grid">
+      <div class="achievement" *ngFor="let badge of badges">
+        <div class="diamond-background">
+          <div class="badge-icon"></div>
         </div>
-      </div> -->
-    </mat-card>
+        <div class="badge-labels">
+          <p class="badge-title">{{ badge.title }}</p>
+          <p class="badge-subtitle">{{ badge.subtitle }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  -->
+</mat-card>
+
 
     <!-- XP + Radar -->
     <mat-card class="card xp">
