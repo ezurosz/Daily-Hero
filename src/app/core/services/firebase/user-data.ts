@@ -179,7 +179,7 @@ async addDefaultFixedQuests() {
       descricao: 'Aniversário de 1 amigo',
       categoria: 'daily',
       level: 'fácil',
-      fixa: true,
+      instanciar: true,
       tags: ['Social'],
       rev: 1,
     },
@@ -188,7 +188,7 @@ async addDefaultFixedQuests() {
       descricao: 'Limpar armário',
       categoria: 'weekly',
       level: 'médio',
-      fixa: true,
+      instanciar: true,
       rev: 1,
     },
   ];
@@ -238,7 +238,7 @@ async carregarFixedQuests(): Promise<void> {
 }
 
 
-  // 🏁 Instancia as FIXED no DIA usando array unificado: fixedQuests
+// 🏁 Instancia as FIXED no DIA usando array unificado: fixedQuests
 async instanciarFixedQuests() {
   await this.criarDiaSeNaoExistir();
 
@@ -247,16 +247,13 @@ async instanciarFixedQuests() {
   const diaSnap = await getDoc(diaRef);
   const diaData = diaSnap.data() ?? {};
 
-  // instâncias já existentes hoje (modelo unificado no dia)
   const jaInstanciadas = (diaData['fixedQuests'] ?? []) as QuestInstance[];
 
-  // ---- Lê catálogo do usuário (compat array OU {daily,weekly})
   const userRef  = await this.getUserDocRef();
   const userSnap = await getDoc(userRef);
   const dataUser = userSnap.data() ?? {};
   const root = dataUser['fixedQuests'];
 
-  // normaliza para um array de templates
   let catalog: FixedQuestTemplate[] = [];
   if (Array.isArray(root)) {
     catalog = root as FixedQuestTemplate[];
@@ -266,24 +263,21 @@ async instanciarFixedQuests() {
     catalog = [...daily, ...weekly];
   }
 
-  // garante rev e filtra apenas fixas ativas
+  // respeita "instanciar" (default = true se undefined)
   const templates = catalog
     .map(t => ({ ...t, rev: t.rev && t.rev > 0 ? t.rev : 1 }))
-    .filter(t => t.fixa);
+    .filter(t => t.instanciar !== false);
 
-  // separa por categoria
   const fixasDaily  = templates.filter(t => t.categoria === 'daily');
   const fixasWeekly = templates.filter(t => t.categoria === 'weekly');
 
-  // helper para não duplicar no dia
   const jaExiste = (tmpl: FixedQuestTemplate) =>
     jaInstanciadas.some(inst => inst.id === tmpl.id || questIgual(tmpl, inst));
 
-  // cria instâncias com vínculo/versão e estado resetado
   const novasDaily: QuestInstance[] = fixasDaily
     .filter(t => !jaExiste(t))
     .map(t => ({
-      id: t.id,                      // mantém id do template como id da instância (sua regra atual)
+      id: t.id,
       templateId: t.id,
       templateType: 'fixed',
       appliedRev: t.rev!,
@@ -326,6 +320,7 @@ async instanciarFixedQuests() {
 
 
 
+
 // 🎯 Lógica: Hunting Quests =============================
 huntingQuests: HuntingTemplate[] = [];
 
@@ -348,6 +343,7 @@ async addDefaultHuntingQuests() {
       tags: ['Fé'],
       expirado: false,
       rev: 1, // NOVO
+      instanciar: true
     },
   ];
 
@@ -363,6 +359,7 @@ async addDefaultHuntingQuests() {
       tags: ['Estudo'],
       expirado: false,
       rev: 1, // NOVO
+      instanciar: true
     },
   ];
 
@@ -398,37 +395,31 @@ async instanciarHuntingQuests() {
   const diaSnap = await getDoc(diaRef);
   const diaData = diaSnap.data() ?? {};
 
-  // novo array unificado no dia
   const jaInstanciadas = (diaData['huntingQuests'] ?? []) as HuntingTemplate[];
 
   const userRef = await this.getUserDocRef();
   const userSnap = await getDoc(userRef);
   const userData = userSnap.data() ?? {};
 
-  // catálogo principal de huntings (seu "template" de hunting; hoje tem shape de Quest)
-  const todasHunting = (userData['huntingQuests'] ?? []) as HuntingTemplate[]; // ou HuntingTemplate
+  const catalogo = (userData['huntingQuests'] ?? []) as HuntingTemplate[];
 
-  const novas = todasHunting
-    // evita duplicar: não cria se já existir instância com mesmo id OU conteúdo equivalente
+  // só instancia quem pode (instanciar !== false)
+  const elegiveis = catalogo.filter(t => t.instanciar !== false);
+
+  const novas = elegiveis
     .filter(t => !jaInstanciadas.some(inst => inst.id === t.id || questIgual(t, inst)))
-    // cria a instância diária mantendo vencimento do template e resetando estado
     .map(t => {
-      const rev = (t as any).rev && (t as any).rev > 0 ? (t as any).rev : 1;
+      const rev = t.rev && t.rev > 0 ? t.rev : 1;
       return {
         id: t.id,
-        // vínculo + versão aplicada
         templateId: t.templateId ?? t.id,
         templateType: 'hunting' as const,
         appliedRev: t.appliedRev ?? rev,
-
-        // snapshot do template que aparece no dia
         descricao: t.descricao,
         categoria: t.categoria,
         level: t.level,
         tags: t.tags ?? [],
-
-        // estado do dia
-        vencimento: t.vencimento, // se preferir recalcular: this.calcularVencimento(t.categoria)
+        vencimento: t.vencimento, // mantém snapshot do template na criação
         concluida: false,
         checkDate: null,
         expirado: false,
@@ -442,6 +433,7 @@ async instanciarHuntingQuests() {
     console.log('[ℹ️] Nenhuma hunting nova a instanciar no dia.');
   }
 }
+
 
 
 
@@ -541,56 +533,61 @@ async toggleConclusaoFixedQuest(questId: string, concluida: boolean) {
 async toggleConclusaoHunting(questId: string, concluida: boolean) {
   await this.criarDiaSeNaoExistir();
 
-  const ref = await this.getDiaDocRef(this.dataHoje());
-  const snapshot = await getDoc(ref);
-  const data = snapshot.data() as DiaData | undefined;
+  const diaRef = await this.getDiaDocRef(this.dataHoje());
+  const diaSnap = await getDoc(diaRef);
+  const data = diaSnap.data() as DiaData | undefined;
   if (!data) return;
 
-  // 1) Unifica se necessário (suporte a legado)
+  // --- 1) Normaliza para o array unificado do DIA (legado -> unificado)
   let hunting = (data.huntingQuests ?? []) as HuntingTemplate[];
-
-  // @ts-ignore - se seu type antigo ainda existir
-  const legacyDaily: HuntingTemplate[] = (data as any).dailyHuntingQuests ?? [];
-  // @ts-ignore
+  const legacyDaily: HuntingTemplate[]  = (data as any).dailyHuntingQuests ?? [];
   const legacyWeekly: HuntingTemplate[] = (data as any).weeklyHuntingQuests ?? [];
   if (!hunting.length && (legacyDaily.length || legacyWeekly.length)) {
     hunting = [...legacyDaily, ...legacyWeekly];
-    await updateDoc(ref, {
-      huntingQuests: hunting,
-      // Para remover legado de vez, descomente e adicione o import deleteField:
-      // dailyHuntingQuests: deleteField(),
-      // weeklyHuntingQuests: deleteField(),
-    });
+    await updateDoc(diaRef, { huntingQuests: hunting });
   }
-
   if (!hunting.length) return;
 
-  // 2) Atualiza a quest no array unificado
+  // --- 2) Atualiza a conclusão APENAS no DIA (preserva vencimento da instância)
   let xp = 0;
   const atualizadas = hunting.map((q) => {
     if (q.id !== questId) return q;
-
-    const updated = {
+    const next = {
       ...q,
       concluida,
       checkDate: concluida ? new Date().toISOString() : null,
+      // NÃO muda vencimento aqui
     };
-
-    if (q.categoria === 'daily') xp = concluida ? 20 : -20;
-    else if (q.categoria === 'weekly') xp = concluida ? 40 : -40;
-
-    return updated;
+    xp = q.categoria === 'daily'
+      ? (concluida ? 20 : -20)
+      : (concluida ? 40 : -40);
+    return next;
   });
 
-  await updateDoc(ref, { huntingQuests: atualizadas });
+  await updateDoc(diaRef, { huntingQuests: atualizadas });
 
-  if (xp !== 0) {
+  if (xp) {
     await this.adicionarXPNoDia(xp);
     await this.atualizarXPGlobal(xp);
   }
 
-  console.log(`[✅] Hunting quest ${questId} atualizada (unificado). XP: ${xp}`);
+  // --- 3) Reflete no CATÁLOGO raiz: instanciar = !concluida
+  const userRef  = await this.getUserDocRef();
+  const userSnap = await getDoc(userRef);
+  const userData = userSnap.data() ?? {};
+  const catalog  = (userData['huntingQuests'] ?? []) as HuntingTemplate[];
+
+  const updatedCatalog = catalog.map(t => {
+    // match por id; se você tiver casos com templateId, mantive a checagem
+    const match = t.id === questId || (t as any).templateId === questId;
+    return match ? { ...t, instanciar: !concluida } : t;
+  });
+
+  await updateDoc(userRef, { huntingQuests: updatedCatalog });
+
+  console.log(`[✅] Hunting ${questId} -> concluida=${concluida}. instanciar no catálogo: ${!concluida}`);
 }
+
 
 
   // 🍽️ Refeições, Água, Treino, XP ========================
@@ -766,23 +763,32 @@ async carregarQuestsDoDia(): Promise<{
 
 }
 
-  agendarExpiracao(quest: QuestInstance, tipo: 'dailyHunting' | 'weeklyHunting') {
-  const agora = new Date();
-  const vencimento = new Date(quest.vencimento);
+// Overloads
+agendarExpiracao(quest: QuestInstance,  tipo: 'fixed'): void;
+agendarExpiracao(quest: HuntingTemplate, tipo: 'hunting'): void;
 
-  if (vencimento <= agora) {
-    this.marcarExpiradaLocalmente(quest.id, tipo);
+// Implementação única
+agendarExpiracao(
+  quest: QuestInstance | HuntingTemplate,
+  tipo: 'fixed' | 'hunting'
+): void {
+  const agora = Date.now();
+  const vence = new Date(quest.vencimento).getTime();
+
+  if (vence <= agora) {
+    if (tipo === 'fixed') this.marcarComoExpiradaNoFirestore(quest as QuestInstance, 'fixed');
+    else this.marcarComoExpiradaNoFirestore(quest as HuntingTemplate, 'hunting');
     return;
   }
 
-  const delay = vencimento.getTime() - agora.getTime();
-
   setTimeout(() => {
-    this.marcarExpiradaLocalmente(quest.id, tipo);
-  }, delay);
+    if (tipo === 'fixed') this.marcarComoExpiradaNoFirestore(quest as QuestInstance, 'fixed');
+    else this.marcarComoExpiradaNoFirestore(quest as HuntingTemplate, 'hunting');
+  }, vence - agora);
 }
 
-private marcarExpiradaLocalmente(questId: string, tipo: 'dailyHunting' | 'weeklyHunting') {
+
+/* private marcarExpiradaLocalmente(questId: string, tipo: 'dailyHunting' | 'weeklyHunting') {
   const lista =
     tipo === 'dailyHunting' ? this.dailyHuntingQuests : this.weeklyHuntingQuests;
 
@@ -794,78 +800,73 @@ private marcarExpiradaLocalmente(questId: string, tipo: 'dailyHunting' | 'weekly
   else this.weeklyHuntingQuests = novaLista;
 
   console.log(`⚠️ Quest expirou: ${questId}`);
-}
+} */
 
-verificarExpiradas(quests: QuestInstance[]): QuestInstance[] {
+// Overloads
+verificarExpiradas(quests: QuestInstance[],  tipo: 'fixed'):   QuestInstance[];
+verificarExpiradas(quests: HuntingTemplate[], tipo: 'hunting'): HuntingTemplate[];
+
+// Implementação única
+verificarExpiradas(
+  quests: (QuestInstance | HuntingTemplate)[],
+  tipo: 'fixed' | 'hunting'
+) {
   const agora = Date.now();
-  return quests.map((q) => {
+  const expiradasIds: string[] = [];
+
+  const atualizadas = quests.map((q) => {
     if (!q.concluida && !q.expirado && new Date(q.vencimento).getTime() < agora) {
-      // Aqui é o ponto em que precisamos:
-      // 1. Marcar localmente
-      // 2. Gravar no Firestore
-      this.marcarComoExpiradaNoFirestore(q); // async
+      expiradasIds.push(q.id);
       return { ...q, expirado: true };
     }
     return q;
   });
+
+  // Persistência assíncrona com narrowing por 'tipo'
+  expiradasIds.forEach((id) => {
+    const q = quests.find(x => x.id === id)!;
+    if (tipo === 'fixed') {
+      this.marcarComoExpiradaNoFirestore(q as QuestInstance, 'fixed').catch(console.warn);
+    } else {
+      this.marcarComoExpiradaNoFirestore(q as HuntingTemplate, 'hunting').catch(console.warn);
+    }
+  });
+
+  return atualizadas as any; // o overload acima garante o tipo correto na chamada
 }
 
-async marcarComoExpiradaNoFirestore(quest: QuestInstance /* | HuntingTemplate */) {
+
+
+// Overloads (assinaturas públicas)
+marcarComoExpiradaNoFirestore(quest: QuestInstance,  tipo: 'fixed'): Promise<void>;
+marcarComoExpiradaNoFirestore(quest: HuntingTemplate, tipo: 'hunting'): Promise<void>;
+
+// Implementação única
+async marcarComoExpiradaNoFirestore(
+  quest: QuestInstance | HuntingTemplate,
+  tipo: 'fixed' | 'hunting'
+): Promise<void> {
   const ref = await this.getDiaDocRef(this.dataHoje());
   const snap = await getDoc(ref);
   if (!snap.exists()) return;
 
-  // Tipar como DiaData + legado opcional (evita erro TS7053)
-  type LegacyDia = {
-    dailyQuests?: QuestInstance[];
-    weeklyQuests?: QuestInstance[];
-    dailyHuntingQuests?: any[];  // se quiser tipar, use seu HuntingTemplate
-    weeklyHuntingQuests?: any[];
-  };
-  const data = snap.data() as DiaData & Partial<LegacyDia>;
+  const data = snap.data() as any;
 
-  // ---- (1) Normaliza/mescla legado em unificado, se necessário
-  let fixed = (data.fixedQuests ?? []) as QuestInstance[];
-  const legacyFixed =
-    (data.dailyQuests ?? []).concat(data.weeklyQuests ?? []);
-
-  if (!fixed.length && legacyFixed.length) {
-    fixed = legacyFixed;
-    await updateDoc(ref, { fixedQuests: fixed });
-  }
-
-  let hunting = (data.huntingQuests ?? []) as any[]; // seu HuntingTemplate
-  const legacyHunting =
-    (data.dailyHuntingQuests ?? []).concat(data.weeklyHuntingQuests ?? []);
-
-  if (!hunting.length && legacyHunting.length) {
-    hunting = legacyHunting;
-    await updateDoc(ref, { huntingQuests: hunting });
-  }
-
-  // ---- (2) Tenta marcar nas FIXED
-  if (fixed.some(q => q.id === quest.id)) {
-    const updated = fixed.map(q =>
-      q.id === quest.id ? { ...q, expirado: true } : q
-    );
+  if (tipo === 'fixed') {
+    const list = (data.fixedQuests ?? []) as QuestInstance[];
+    if (!list.length) return;
+    const updated = list.map(q => q.id === quest.id ? { ...q, expirado: true } : q);
     await updateDoc(ref, { fixedQuests: updated });
-    console.log(`🔥 Fixed quest ${quest.id} marcada como expirada no Firestore`);
     return;
-  }
-
-  // ---- (3) Tenta marcar nas HUNTINGS
-  if (hunting.some((q: any) => q.id === quest.id)) {
-    const updated = hunting.map((q: any) =>
-      q.id === quest.id ? { ...q, expirado: true } : q
-    );
+  } else {
+    const list = (data.huntingQuests ?? []) as HuntingTemplate[];
+    if (!list.length) return;
+    const updated = list.map(q => q.id === quest.id ? { ...q, expirado: true } : q);
     await updateDoc(ref, { huntingQuests: updated });
-    console.log(`🔥 Hunting quest ${quest.id} marcada como expirada no Firestore`);
     return;
   }
-
-  // ---- (4) Caso não encontre em nenhum array
-  console.warn(`⚠️ Quest ${quest.id} não encontrada em fixedQuests/huntingQuests.`);
 }
+
 
 
 async setXP(xp: number, nivel: number) {

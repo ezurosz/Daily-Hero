@@ -56,6 +56,7 @@ export class MissoesService {
       fixa: true as any,           // manter compat se seu modelo tiver esse campo
       ativa: (q as any).ativa ?? true,
       rev: (q as any).rev ?? 1,
+      instanciar: true
     } as FixedQuestTemplate;
 
     const idx = bucket.findIndex(b => b.id === id);

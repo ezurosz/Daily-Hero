@@ -140,11 +140,12 @@ get weeklyFixed(): QuestInstance[] {
 
   await this.carregarQuestsParaExibicao();
 
-   // 🔁 Verifica quests expiradas a cada 90 segundos
-   setInterval(() => {
-    this.fixedQuests = this.userDataService.verificarExpiradas(this.fixedQuests);
-    this.huntingQuests = this.userDataService.verificarExpiradas(this.huntingQuests);
-  }, 60000); // a cada 60 segundos
+   // revalidação a cada 60s:
+setInterval(() => {
+  this.fixedQuests = this.userDataService.verificarExpiradas(this.fixedQuests, 'fixed');
+  this.huntingQuests = this.userDataService.verificarExpiradas(this.huntingQuests, 'hunting');
+}, 60_000);
+
 }
 
   ngOnDestroy(): void {

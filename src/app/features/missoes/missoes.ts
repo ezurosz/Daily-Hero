@@ -249,7 +249,7 @@ export class MissoesPageComponent implements OnInit {
       descricao: v.descricao!,
       categoria: v.categoria as any,
       level: this.sanitizeLevel(v.level!),
-      fixa: true,
+      instanciar: true,
       tags: this.sanitizeTags(this.parseTags(v.tagsStr!)),
       rev: 1,
     };
@@ -284,38 +284,86 @@ export class MissoesPageComponent implements OnInit {
   }
 
   // HUNTINGS
-  async saveHunting() {
-    const v = this.huntingForm.getRawValue();
+async saveHunting() {
+  const v = this.huntingForm.getRawValue();
 
-    // vencimento automático com base na categoria
-    const vencimentoISO = this.calcVencimento(v.categoria as 'daily' | 'weekly');
+  const userRef = await this.user.getUserDocRef();
+  const userSnap = await getDoc(userRef);
+  const userData = userSnap.data() ?? {};
+  const existentes = (userData['huntingQuests'] ?? []) as HuntingTemplate[];
 
-    const item: HuntingTemplate = {
-      id: this.editingHuntingId ?? crypto.randomUUID(),
-      descricao: v.descricao!,
-      categoria: v.categoria as any,
-      level: this.sanitizeLevel(v.level!),
-      vencimento: vencimentoISO,
-      concluida: false,
-      checkDate: null,
-      expirado: false,
-      tags: this.sanitizeTags(this.parseTags(v.tagsStr!)),
-      rev: 1,
-    };
+  // Em EDIÇÃO: preserva vencimento/instanciar do catálogo
+  const antigo = this.editingHuntingId
+    ? existentes.find(x => x.id === this.editingHuntingId)
+    : undefined;
 
-    const userRef = await this.user.getUserDocRef();
-    const snap = await getDoc(userRef);
-    const data = snap.data() ?? {};
-    const existentes = (data['huntingQuests'] ?? []) as HuntingTemplate[];
+  const vencimentoISO = this.editingHuntingId
+    ? (antigo?.vencimento ?? this.calcVencimento(v.categoria as 'daily' | 'weekly'))
+    : this.calcVencimento(v.categoria as 'daily' | 'weekly');
 
-    await updateDoc(userRef, { huntingQuests: [item, ...existentes.filter(x => x.id !== item.id)] });
+  const instanciar = this.editingHuntingId
+    ? (antigo?.instanciar ?? true)
+    : true;
 
-    await this.ensureAndLoadHuntingsDia();
+  const item: HuntingTemplate = {
+    id: this.editingHuntingId ?? crypto.randomUUID(),
+    descricao: v.descricao!,
+    categoria: v.categoria as any,
+    level: this.sanitizeLevel(v.level!),
+    vencimento: vencimentoISO,         // <- não muda em edição
+    concluida: false,                  // <- catálogo não guarda status do dia
+    checkDate: null,
+    expirado: false,
+    tags: this.sanitizeTags(this.parseTags(v.tagsStr!)),
+    rev: (antigo?.rev ?? 0) + 1,       // opcional: incrementa rev ao editar
+    instanciar,                        // <- preserva
+  };
 
-    this.editingHuntingId = null;
-    this.huntingForm.reset({ level: 'fácil', categoria: 'daily', tagsStr: '' });
-    this.dialog.closeAll();
+  // 1) Atualiza CATÁLOGO raiz
+  await updateDoc(userRef, {
+    huntingQuests: [item, ...existentes.filter(x => x.id !== item.id)]
+  });
+
+  // 2) ESPELHA no DIA (sem mexer em vencimento/conclusão/expirado)
+  await this.user.criarDiaSeNaoExistir();
+  const diaRef = await this.user.getDiaDocRef(this.hoje);
+  const diaSnap = await getDoc(diaRef);
+  const diaData = diaSnap.data() ?? {};
+  const huntsDia = (diaData['huntingQuests'] ?? []) as HuntingTemplate[];
+
+  if (huntsDia.length) {
+    const espelhadas = huntsDia.map(q => {
+      // casa por id do template (ou templateId legado)
+      const isSame = q.id === item.id || (q as any).templateId === item.id;
+      if (!isSame) return q;
+
+      return {
+        ...q,
+        descricao: item.descricao,
+        categoria: item.categoria,  // se mudar, mantemos vencimento do snapshot
+        level: item.level,
+        tags: item.tags ?? [],
+        appliedRev: item.rev ?? 1,
+        // mantém:
+        // vencimento: q.vencimento,
+        // concluida: q.concluida,
+        // checkDate: q.checkDate,
+        // expirado: q.expirado
+      } as HuntingTemplate;
+    });
+
+    await updateDoc(diaRef, { huntingQuests: espelhadas });
   }
+
+  // 3) Recarrega lista do dia e fecha modal
+  await this.ensureAndLoadHuntingsDia();
+
+  this.editingHuntingId = null;
+  this.huntingForm.reset({ level: 'fácil', categoria: 'daily', tagsStr: '' });
+  this.dialog.closeAll();
+}
+
+
 
   async removeHunting(q: HuntingTemplate) {
     const userRef = await this.user.getUserDocRef();
