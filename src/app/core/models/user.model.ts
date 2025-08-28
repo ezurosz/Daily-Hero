@@ -1,5 +1,6 @@
 import { FixedQuestTemplate } from './fixed-quest-template.model';
 import { WorkoutPlan } from './treino.model';
+import { Attrs } from './atributos.model';
 
 export interface Usuario {
   nivel: number;
@@ -9,4 +10,6 @@ export interface Usuario {
   xpHistory: {
     lastEntry: string | null;
   };
+  attributes?: Attrs;
+
 }

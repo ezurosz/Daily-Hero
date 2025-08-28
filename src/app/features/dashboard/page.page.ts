@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, ViewChild, effect, Signal, Injector, runInInjectionContext, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatCardModule } from '@angular/material/card';
@@ -22,6 +22,9 @@ import { getDoc } from 'firebase/firestore';
 import { HuntingTemplate } from '../../core/models/hunting-template';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { RealTimeService } from '../../core/services/firebase/realtime-service';
+import { AtributosService } from '../../core/services/atributos.service';
+import { Attrs } from '../../core/models/atributos.model';
+
 
 @Component({
   selector: 'app-page',
@@ -47,15 +50,18 @@ import { RealTimeService } from '../../core/services/firebase/realtime-service';
   providers: [provideCharts(withDefaultRegisterables())],
 })
 export class PagePage implements OnInit {
+  @ViewChild(BaseChartDirective) chart?: BaseChartDirective;
   private authService = inject(AuthService);
   private userDataService = inject(UserDataService);
   private rt = inject(RealTimeService);
   private snackBar = inject(MatSnackBar);
+  private atributos = inject(AtributosService);
+   private injector = inject(Injector);
 
   logout() {
     this.authService.logout();
   }
-
+  
   isMobile = false;
   nivelAtual = 1;
   xpAtual = 0;
@@ -79,6 +85,18 @@ export class PagePage implements OnInit {
   // Nomes de treinos (workoutList) em tempo real
   workoutListSig = toSignal(this.rt.workoutList$(), { initialValue: [] as string[] });
 
+   // ✅ Constante inicial de atributos
+  private readonly INITIAL_ATTRS: Attrs = {
+    forca:        { value: 20, floor: 20, lastUpdated: '' },
+    inteligencia: { value: 20, floor: 20, lastUpdated: '' },
+    socializacao: { value: 20, floor: 20, lastUpdated: '' },
+    disciplina:   { value: 20, floor: 20, lastUpdated: '' },
+    consciencia:  { value: 20, floor: 20, lastUpdated: '' },
+    fe:           { value: 20, floor: 20, lastUpdated: '' },
+  };
+
+  // ✅ Signal local que você pode expor internamente
+  attrsSig = signal<Attrs>(this.INITIAL_ATTRS);
 
   // ======== REALTIME via signals ========
   // Instâncias do dia (atualizam sozinhas sem F5)
@@ -123,30 +141,48 @@ export class PagePage implements OnInit {
     { title: 'Somnia', subtitle: 'Whale' },
   ];
 
+  
+
   async ngOnInit() {
-    this.atualizarDiaAtual();
-    this.isMobile = window.innerWidth <= 768;
+  this.atualizarDiaAtual();
+  this.isMobile = window.innerWidth <= 768;
 
-    // Garante o documento do dia e instanciações iniciais
-    await this.userDataService.criarDiaSeNaoExistir();
-    await Promise.all([
-      this.carregarTreinosDaSemana(),           // nomes dos treinos (workoutList)
-      this.userDataService.instanciarFixedQuests(),
-      this.userDataService.instanciarHuntingQuests(),
-    ]);
+  // ✅ espere o auth ficar pronto (impede UID null)
+  await this.authService.waitForAuthReady();
 
-    // Carrega XP/Nível do documento principal 1x (se quiser, dá pra ligar em tempo real depois)
-    const userMainData = await this.userDataService.getUserMainData();
-    if (userMainData) {
-      this.nivelAtual = userMainData.nivel;
-      this.xpAtual = userMainData.xp;
-    }
+  // ✅ garanta os atributos no users/{uid}
+  await this.atributos.ensureAttributes();
 
-    // Carrega dados de refeições/água do dia
-    await this.carregarDadosDoUsuario();
+   // cria o toSignal em contexto de injeção
+    runInInjectionContext(this.injector, () => {
+      const attrsLive = toSignal(this.atributos.attributes$(), {
+        initialValue: this.INITIAL_ATTRS,
+      });
 
-    // Nada de setInterval de expiração aqui — realtime cobre a UI.
+      effect(() => {
+        const a = attrsLive();
+        this.attrsSig.set(a);
+        this.setChartFromAttrs(a);
+      });
+    });
+
+  // ===== o resto do seu init como estava =====
+  await this.userDataService.criarDiaSeNaoExistir();
+  await Promise.all([
+    this.carregarTreinosDaSemana(),
+    this.userDataService.instanciarFixedQuests(),
+    this.userDataService.instanciarHuntingQuests(),
+  ]);
+
+  const userMainData = await this.userDataService.getUserMainData();
+  if (userMainData) {
+    this.nivelAtual = userMainData.nivel;
+    this.xpAtual = userMainData.xp;
   }
+
+  await this.carregarDadosDoUsuario();
+}
+
 
   atualizarDiaAtual() {
     const hoje = new Date();
@@ -243,19 +279,47 @@ export class PagePage implements OnInit {
   bloqueado = false;
   checkboxLoading = false;
 
-  private async comTravaDeTempo(acao: () => Promise<void>) {
-    if (this.bloqueado) return;
+  // Anti-spam com duração mínima (sem somar 1s sempre)
+private comTravaDeTempo(
+  acao: () => Promise<void>,
+  minMs = 300,          // tempo mínimo para suavizar UI (0.3s)
+  maxMs = 8000          // segurança: destrava no máx em 8s mesmo se der pau
+) {
+  if (this.bloqueado) return;
 
-    this.bloqueado = true;
-    this.checkboxLoading = true;
+  this.bloqueado = true;
+  this.checkboxLoading = true;
 
-    await acao();
+  const start = performance.now();
 
-    setTimeout(() => {
+  // watchdog para nunca ficar travado “pra sempre”
+  let unlocked = false;
+  const watchdog = setTimeout(() => {
+    if (!unlocked) {
       this.bloqueado = false;
       this.checkboxLoading = false;
-    }, 1000);
-  }
+    }
+  }, maxMs);
+
+  // NÃO usar await aqui — deixa a UI seguir
+  acao()
+    .catch(err => {
+      console.error(err);
+      this.snackBar.open('Erro ao salvar. Tente novamente.', 'OK', { duration: 3000 });
+    })
+    .finally(() => {
+      const elapsed = performance.now() - start;
+      const wait = Math.max(0, minMs - elapsed); // se o write foi rápido, completa o mínimo
+
+      setTimeout(() => {
+        unlocked = true;
+        clearTimeout(watchdog);
+        this.bloqueado = false;
+        this.checkboxLoading = false;
+      }, wait);
+    });
+}
+
 
   async toggleRefeicao(refeicao: Meal) {
     this.comTravaDeTempo(async () => {
@@ -264,6 +328,12 @@ export class PagePage implements OnInit {
 
       const xp = novaConclusao ? 10 : -10;
       this.atualizarXPNoFront(xp);
+
+      // 3) atributos (Disciplina ±0,5)
+    await this.atributos.aplicarAtributosPorEvento({
+      tipo: 'refeicao',
+      concluindo: novaConclusao,
+    });
 
       const hoje = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
       const dados = await this.userDataService.getDiaData(hoje);
@@ -285,6 +355,12 @@ export class PagePage implements OnInit {
       await this.userDataService.marcarAguaNoDia(litros + (delta === 1 ? 0 : -1));
       this.atualizarXPNoFront(xp);
 
+       // 3) atributos (Disciplina ±0,5)
+      await this.atributos.aplicarAtributosPorEvento({
+        tipo: 'agua',
+        concluindo: novoValor,
+      });
+
       const dados = await this.userDataService.getDiaData(
         new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' })
       );
@@ -303,6 +379,14 @@ export class PagePage implements OnInit {
 
       this.atualizarXPNoFront(xp);
       // listas atualizam via realtime
+
+      // 3) atributos (disciplina + tags da quest)
+    await this.atributos.aplicarAtributosPorEvento({
+      tipo: 'quest',
+      concluindo: novaConclusao,
+      tags: quest.tags ?? [], // usa suas tags p/ Inteligência, Socialização, Fé, Consciência
+    });
+
     });
   }
 
@@ -317,6 +401,13 @@ export class PagePage implements OnInit {
 
       this.atualizarXPNoFront(xp);
       // listas atualizam via realtime
+
+      // 3) atributos (usa tags se existir no template/instância)
+    await this.atributos.aplicarAtributosPorEvento({
+      tipo: 'quest',
+      concluindo: novaConclusao,
+      tags: quest.tags ?? [],
+    });
     });
   }
 
@@ -341,21 +432,35 @@ export class PagePage implements OnInit {
     return num < 10 ? `0${num}` : `${num}`;
   }
 
+  private setChartFromAttrs(attrs: Attrs) {
+  const get = (k: keyof Attrs) => Math.max(attrs[k]?.floor ?? 20, attrs[k]?.value ?? 20);
+  this.chartData.datasets[0].data = [
+    get('forca'),
+    get('inteligencia'),
+    get('socializacao'),
+    get('disciplina'),
+    get('consciencia'),
+    get('fe'),
+  ];
+  this.chart?.update();
+}
+
   chartData = {
-    labels: ['Força', 'Destreza', 'Inteligência', 'Constituição', 'Carisma', 'Sabedoria'],
-    datasets: [
-      {
-        data: [65, 59, 90, 81, 56, 55],
-        fill: true,
-        backgroundColor: 'rgba(54,162,235,0.2)',
-        borderColor: 'rgb(54,162,235)',
-        pointBackgroundColor: 'rgb(54,162,235)',
-        pointBorderColor: '#fff',
-        pointHoverBackgroundColor: '#fff',
-        pointHoverBorderColor: 'rgb(54,162,235)',
-      },
-    ],
-  };
+  labels: ['Força', 'Inteligência', 'Socialização', 'Disciplina', 'Consciência', 'Fé'],
+  datasets: [
+    {
+      data: [20, 20, 20, 20, 20, 20],
+      fill: true,
+      backgroundColor: 'rgba(54,162,235,0.2)',
+      borderColor: 'rgb(54,162,235)',
+      pointBackgroundColor: 'rgb(54,162,235)',
+      pointBorderColor: '#fff',
+      pointHoverBackgroundColor: '#fff',
+      pointHoverBorderColor: 'rgb(54,162,235)',
+    },
+  ],
+};
+
 
   chartOptions = {
     responsive: true,
@@ -384,7 +489,4 @@ export class PagePage implements OnInit {
       },
     },
   };
-
-  private xpTimeout: any = null;
-  private levelTimeout: any = null;
 }

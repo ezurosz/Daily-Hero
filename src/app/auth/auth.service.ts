@@ -16,30 +16,30 @@ export class AuthService {
   private isReady = false;
 
   constructor(private router: Router) {
-  onAuthStateChanged(this.auth, (user) => {
-    this.user = user;
-    this.isReady = true;
+    onAuthStateChanged(this.auth, (user) => {
+      this.user = user;
+      this.isReady = true;
 
-    const currentPath = window.location.pathname;
+      const currentPath = window.location.pathname;
 
-    // ✅ Lista de rotas protegidas
-    const rotasProtegidas = ['/dashboard', '/perfil', '/treino']; // 🔧 '/xp-teste' não está aqui
+      // ✅ Lista de rotas protegidas
+      const rotasProtegidas = ['/dashboard', '/perfil', '/treino'];
 
-    // ✅ Redireciona para dashboard se estiver na tela de login
-    if (user && currentPath === '/login') {
-      console.log('[⚡] Redirecionando para dashboard após login detectado.');
-      this.router.navigate(['/dashboard']);
-    }
+      // ✅ Redireciona para dashboard se estiver na tela de login
+      if (user && currentPath === '/login') {
+        console.log('[⚡] Redirecionando para dashboard após login detectado.');
+        this.router.navigate(['/dashboard']);
+      }
 
-    const precisaLogin = rotasProtegidas.some(path => currentPath.startsWith(path));
+      const precisaLogin = rotasProtegidas.some(path => currentPath.startsWith(path));
 
-    // ✅ Redireciona apenas se for uma rota protegida
-    if (!user && precisaLogin) {
-      console.log('[🔒] Rota protegida sem autenticação. Redirecionando para login.');
-      this.router.navigate(['/login']);
-    }
-  });
-}
+      // ✅ Redireciona apenas se for uma rota protegida
+      if (!user && precisaLogin) {
+        console.log('[🔒] Rota protegida sem autenticação. Redirecionando para login.');
+        this.router.navigate(['/login']);
+      }
+    });
+  }
 
   /** Espera até que o Firebase informe o estado de autenticação */
   waitForAuthReady(): Promise<void> {
@@ -54,7 +54,35 @@ export class AuthService {
       });
     });
   }
-  
+
+  // ============== NOVOS HELPERS DE UID ==============
+
+  /** UID síncrono (retorna null se ainda não logado) */
+  getUid(): string | null {
+    return this.user ? this.user.uid : null;
+  }
+
+  /** UID síncrono que lança erro se não estiver autenticado */
+  getUidOrThrow(): string {
+    if (!this.user) throw new Error('Usuário não autenticado');
+    return this.user.uid;
+  }
+
+  /** UID assíncrono: aguarda estado de auth estar pronto e retorna UID */
+  async getUidAsync(): Promise<string> {
+    await this.waitForAuthReady();
+    if (!this.user) throw new Error('Usuário não autenticado');
+    return this.user.uid;
+  }
+
+  /** User assíncrono (útil se você precisa do objeto completo) */
+  async getCurrentUserAsync(): Promise<User> {
+    await this.waitForAuthReady();
+    if (!this.user) throw new Error('Usuário não autenticado');
+    return this.user;
+  }
+
+  // ===================================================
 
   loginWithGoogle() {
     const provider = new GoogleAuthProvider();
