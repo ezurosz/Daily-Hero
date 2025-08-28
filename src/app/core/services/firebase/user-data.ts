@@ -23,6 +23,8 @@ import { HuntingTemplate } from '../../models/hunting-template';
 import { DiaData } from '../../models/dia-data.model';
 import { firstValueFrom, Observable } from 'rxjs';
 import { user } from 'rxfire/auth';
+import { increment } from 'firebase/firestore';
+import { runTransaction } from 'firebase/firestore';
 
 function questIgual(
   q1: { descricao: string; categoria: string; level: string },
@@ -449,15 +451,6 @@ async carregarHuntingQuests(): Promise<void> {
   // novo array unificado no dia
   const hunting = (dados['huntingQuests'] ?? []) as HuntingTemplate[];
 
-  // se você mantiver as propriedades públicas de classe:
-  // this.huntingQuests = hunting;
-
-  // agendar expiração respeitando a categoria (reusa sua função existente)
-  hunting.forEach(q => {
-    const tipo = q.categoria === 'daily' ? 'dailyHunting' : 'weeklyHunting';
-    this.agendarExpiracao(q, tipo as any);
-  });
-
   console.log('[🎯 Hunting carregadas (unificado)]', {
     total: hunting.length,
     daily: hunting.filter(q => q.categoria === 'daily').length,
@@ -593,45 +586,32 @@ async toggleConclusaoHunting(questId: string, concluida: boolean) {
   // 🍽️ Refeições, Água, Treino, XP ========================
 
   async adicionarXPNoDia(xp: number) {
-     await this.criarDiaSeNaoExistir();
-    const ref = await this.getDiaDocRef(this.dataHoje());
-    const snapshot = await getDoc(ref);
-    const data = snapshot.data();
-
-    if (!data) throw new Error('Documento do dia não encontrado');
-
-    const xpAtual = data['xpGanho'] || 0;
-    await updateDoc(ref, { xpGanho: xpAtual + xp });
-
-    console.log(`[✨] XP do dia atualizada: ${xpAtual} ➜ ${xpAtual + xp}`);
-  }
+  await this.criarDiaSeNaoExistir();
+  const ref = await this.getDiaDocRef(this.dataHoje());
+  await updateDoc(ref, { xpGanho: increment(xp) });
+}
 
   async atualizarXPGlobal(valor: number) {
   const userRef = await this.getUserDocRef();
-  const snapshot = await getDoc(userRef);
 
-  let xpTotal = snapshot.data()?.['xp'] ?? 0;
-  xpTotal += valor;
+  await runTransaction(this.firestore, async (tx) => {
+    const snap = await tx.get(userRef);
+    let xpTotal = Number(snap.data()?.['xp'] ?? 0);
+    xpTotal += valor;
 
-  let nivel = 1;
-  let xpAcumulada = xpTotal;
-
-  while (true) {
-    const xpParaSubir = this.xpParaProximoNivel(nivel);
-    if (xpAcumulada >= xpParaSubir) {
-      xpAcumulada -= xpParaSubir;
-      nivel++;
-    } else {
-      break;
+    // Recalcula nível a partir do TOTAL
+    let nivel = 1;
+    let resto = xpTotal;
+    while (true) {
+      const xpParaSubir = this.xpParaProximoNivel(nivel);
+      if (resto >= xpParaSubir) {
+        resto -= xpParaSubir;
+        nivel++;
+      } else break;
     }
-  }
 
-  await updateDoc(userRef, {
-    xp: xpTotal,     // XP total acumulada
-    nivel: nivel     // Nível corretamente ajustado
+    tx.update(userRef, { xp: xpTotal, nivel });
   });
-
-  console.log(`[🔥] XP global atualizada: XP = ${xpTotal}, Nível = ${nivel}`);
 }
 
 
@@ -762,112 +742,6 @@ async carregarQuestsDoDia(): Promise<{
   };
 
 }
-
-// Overloads
-agendarExpiracao(quest: QuestInstance,  tipo: 'fixed'): void;
-agendarExpiracao(quest: HuntingTemplate, tipo: 'hunting'): void;
-
-// Implementação única
-agendarExpiracao(
-  quest: QuestInstance | HuntingTemplate,
-  tipo: 'fixed' | 'hunting'
-): void {
-  const agora = Date.now();
-  const vence = new Date(quest.vencimento).getTime();
-
-  if (vence <= agora) {
-    if (tipo === 'fixed') this.marcarComoExpiradaNoFirestore(quest as QuestInstance, 'fixed');
-    else this.marcarComoExpiradaNoFirestore(quest as HuntingTemplate, 'hunting');
-    return;
-  }
-
-  setTimeout(() => {
-    if (tipo === 'fixed') this.marcarComoExpiradaNoFirestore(quest as QuestInstance, 'fixed');
-    else this.marcarComoExpiradaNoFirestore(quest as HuntingTemplate, 'hunting');
-  }, vence - agora);
-}
-
-
-/* private marcarExpiradaLocalmente(questId: string, tipo: 'dailyHunting' | 'weeklyHunting') {
-  const lista =
-    tipo === 'dailyHunting' ? this.dailyHuntingQuests : this.weeklyHuntingQuests;
-
-  const novaLista = lista.map(q =>
-    q.id === questId ? { ...q, expirado: true } : q
-  );
-
-  if (tipo === 'dailyHunting') this.dailyHuntingQuests = novaLista;
-  else this.weeklyHuntingQuests = novaLista;
-
-  console.log(`⚠️ Quest expirou: ${questId}`);
-} */
-
-// Overloads
-verificarExpiradas(quests: QuestInstance[],  tipo: 'fixed'):   QuestInstance[];
-verificarExpiradas(quests: HuntingTemplate[], tipo: 'hunting'): HuntingTemplate[];
-
-// Implementação única
-verificarExpiradas(
-  quests: (QuestInstance | HuntingTemplate)[],
-  tipo: 'fixed' | 'hunting'
-) {
-  const agora = Date.now();
-  const expiradasIds: string[] = [];
-
-  const atualizadas = quests.map((q) => {
-    if (!q.concluida && !q.expirado && new Date(q.vencimento).getTime() < agora) {
-      expiradasIds.push(q.id);
-      return { ...q, expirado: true };
-    }
-    return q;
-  });
-
-  // Persistência assíncrona com narrowing por 'tipo'
-  expiradasIds.forEach((id) => {
-    const q = quests.find(x => x.id === id)!;
-    if (tipo === 'fixed') {
-      this.marcarComoExpiradaNoFirestore(q as QuestInstance, 'fixed').catch(console.warn);
-    } else {
-      this.marcarComoExpiradaNoFirestore(q as HuntingTemplate, 'hunting').catch(console.warn);
-    }
-  });
-
-  return atualizadas as any; // o overload acima garante o tipo correto na chamada
-}
-
-
-
-// Overloads (assinaturas públicas)
-marcarComoExpiradaNoFirestore(quest: QuestInstance,  tipo: 'fixed'): Promise<void>;
-marcarComoExpiradaNoFirestore(quest: HuntingTemplate, tipo: 'hunting'): Promise<void>;
-
-// Implementação única
-async marcarComoExpiradaNoFirestore(
-  quest: QuestInstance | HuntingTemplate,
-  tipo: 'fixed' | 'hunting'
-): Promise<void> {
-  const ref = await this.getDiaDocRef(this.dataHoje());
-  const snap = await getDoc(ref);
-  if (!snap.exists()) return;
-
-  const data = snap.data() as any;
-
-  if (tipo === 'fixed') {
-    const list = (data.fixedQuests ?? []) as QuestInstance[];
-    if (!list.length) return;
-    const updated = list.map(q => q.id === quest.id ? { ...q, expirado: true } : q);
-    await updateDoc(ref, { fixedQuests: updated });
-    return;
-  } else {
-    const list = (data.huntingQuests ?? []) as HuntingTemplate[];
-    if (!list.length) return;
-    const updated = list.map(q => q.id === quest.id ? { ...q, expirado: true } : q);
-    await updateDoc(ref, { huntingQuests: updated });
-    return;
-  }
-}
-
-
 
 async setXP(xp: number, nivel: number) {
   const ref = await this.getUserDocRef();

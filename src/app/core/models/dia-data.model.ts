@@ -9,12 +9,6 @@ export interface DiaData {
   meals: Meal[];
   waterIntake: number;
   workout: null; // Mantém como campo legado se necessário
-  treinos?: {
-    [nomeDoTreino: string]: {
-      nome: string;
-      exercicios: Exercicio[];
-    };
-  };
   huntingQuests: HuntingTemplate[];
   fixedQuests: QuestInstance[];
 }
