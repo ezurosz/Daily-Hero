@@ -1,34 +1,37 @@
-<div class="container">
+<div class="trainings">
   <!-- Criar novo plano -->
-  <mat-card class="novo-treino">
-    <mat-form-field appearance="outline" class="w-full">
-      <mat-label>Nome do novo treino</mat-label>
-      <input matInput [(ngModel)]="novoTreino.nome" />
-    </mat-form-field>
+  <section class="card">
+    <div class="section-title">
+      <h3>Novo treino</h3>
+      <!-- <span class="hint">defina um nome e adicione</span> -->
+    </div>
 
-    <button mat-raised-button color="primary" (click)="adicionarTreino()">
-      Adicionar Treino
-    </button>
-  </mat-card>
+    <div class="row">
+      <mat-form-field appearance="outline" class="w-full">
+        <mat-label>Nome do treino</mat-label>
+        <input matInput [(ngModel)]="novoTreino.nome" />
+      </mat-form-field>
+
+      <button class="btn" (click)="adicionarTreino()">Adicionar</button>
+    </div>
+  </section>
 
   <!-- Estado vazio -->
-  <mat-card class="lista-treinos empty" *ngIf="!workoutPlan?.length">
-    <p>Nenhum treino cadastrado ainda.</p>
-  </mat-card>
+  <section class="card empty" *ngIf="!workoutPlan?.length">
+    <p class="muted">Nenhum treino cadastrado ainda.</p>
+  </section>
 
   <!-- Lista de planos -->
-  <mat-card class="lista-treinos" *ngFor="let plano of workoutPlan">
-    <h3 class="titulo-treino" (click)="navegarParaEditar(plano.nome)">
-      {{ plano.nome }}
-    </h3>
+  <section class="grid" *ngIf="workoutPlan?.length">
+    <article class="card treino" *ngFor="let plano of workoutPlan">
+      <header class="treino-head" (click)="navegarParaEditar(plano.nome)">
+        <h3>{{ plano.nome }}</h3>
+      </header>
 
-    <div class="acoes-treino">
-      <button mat-button color="warn" (click)="excluirTreino(plano.nome)">
-        Excluir
-      </button>
-      <button mat-stroked-button (click)="navegarParaEditar(plano.nome)">
-        Editar
-      </button>
-    </div>
-  </mat-card>
+      <div class="actions">
+        <button class="btn danger" (click)="excluirTreino(plano.nome)">Excluir</button>
+        <button class="btn ghost" (click)="navegarParaEditar(plano.nome)">Editar</button>
+      </div>
+    </article>
+  </section>
 </div>

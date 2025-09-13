@@ -1,0 +1,28 @@
+<section class="codex-block" *ngIf="blockId">
+  <header class="header">
+    <input [(ngModel)]="title" placeholder="Título do bloco" />
+    <div class="actions">
+      <button (click)="rename()" [disabled]="busy()">Renomear</button>
+      <button class="danger" (click)="deleteBlock()" [disabled]="busy()">Excluir</button>
+    </div>
+  </header>
+
+  <div class="alerts">
+    <div class="alert error" *ngIf="errorMsg()">{{ errorMsg() }}</div>
+    <div class="alert success" *ngIf="successMsg()">{{ successMsg() }}</div>
+  </div>
+
+  <section class="editor card">
+    <div class="section-title">
+      <h3>Bloco de notas</h3>
+      <span class="hint">salva automaticamente</span>
+    </div>
+
+    <quill-editor
+      [(ngModel)]="contentHtml"
+      (ngModelChange)="onEditorInput()"
+      [styles]="{ height: '420px', width: '100%', 'max-width': '100%' }"
+      placeholder="Escreva aqui..."
+    ></quill-editor>
+  </section>
+</section>

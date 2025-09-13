@@ -262,8 +262,6 @@ mat-card h2 {
   .perfil-info::before{ margin-left: 0; margin-right: auto; }
 } */
 
-
-
 .status-bar {
   display: flex;
   align-items: center;
@@ -506,13 +504,107 @@ mat-list-option:hover {
   display: none;
 }
 
-
-
 @keyframes popupFade {
   0% { opacity: 0; transform: translate(-50%, -20px); }
   10% { opacity: 1; transform: translate(-50%, 0); }
   90% { opacity: 1; }
   100% { opacity: 0; transform: translate(-50%, -20px); }
+}
+
+/* ▶ NOVO: radar no card só no desktop */
+.only-desktop { display: none; }
+@media (min-width: 768px) {
+  .only-desktop { display: block; }
+}
+
+/* ▶ NOVO: Mini-hex e bottom sheet */
+.attr-mini-btn {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  background: transparent;
+  border: 1px solid #1f1f1f;
+  border-radius: 999px;
+  padding: .25rem .5rem .25rem .25rem;
+  color: #f0f0f0;
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease;
+}
+.attr-mini-btn:hover {
+  background: #121212;
+  border-color: #2a2a2a;
+}
+.attr-mini-label {
+  font-size: .85rem;
+  opacity: .9;
+}
+.mini-hex {
+  width: 56px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  background: #0e0e0e;
+  border: 1px solid #1f1f1f;
+  clip-path: polygon(
+    25% 0%, 75% 0%,
+    100% 50%,
+    75% 100%, 25% 100%,
+    0% 50%
+  );
+
+  canvas {
+    width: 48px !important;
+    height: 42px !important;
+  }
+}
+
+.attrs-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.45);
+  z-index: 999;
+}
+.attrs-sheet {
+  position: fixed;
+  left: 0; right: 0;
+  bottom: -70vh;
+  height: 65vh;
+  background: #0c0c0c;
+  border-top: 1px solid #1b1b1b;
+  border-top-left-radius: 14px;
+  border-top-right-radius: 14px;
+  z-index: 1000;
+  transition: bottom .25s ease;
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+.attrs-sheet.open { bottom: 0; }
+.attrs-sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .75rem 1rem;
+  border-bottom: 1px solid #1b1b1b;
+
+  h3 { margin: 0; }
+}
+.attrs-sheet-body {
+  padding: 1rem;
+  overflow: auto;
+}
+.radar-sheet-container {
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  aspect-ratio: 1 / 1;
+  display: grid;
+  place-items: center;
+
+  canvas {
+    width: 100% !important;
+    height: 100% !important;
+  }
 }
 
 /* 📱 Mobile Responsivo */
@@ -549,73 +641,79 @@ mat-list-option:hover {
   }
 
   //* 🔳 Barra fixa no topo (Topbar Mobile) */
-.topbar-mobile {
-  display: flex;
-  flex-direction: column;
-  background-color: #1a1a1a;
-  padding: 12px 16px;
-  border-radius: 8px;
-  box-shadow: 0 0 6px rgba(0, 0, 0, 0.4);
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  width: 100%;
-  box-sizing: border-box;
-  z-index: 999;
-}
+  .topbar-mobile {
+    display: flex;
+    flex-direction: column;
+    background-color: #1a1a1a;
+    padding: 12px 16px;
+    border-radius: 8px;
+    box-shadow: 0 0 6px rgba(0, 0, 0, 0.4);
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    box-sizing: border-box;
+    z-index: 999;
+  }
 
-.topbar-mobile .linha1,
-.topbar-mobile .linha2 {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.9rem;
-  margin-bottom: 4px;
-  flex-wrap: wrap;
-}
+  .topbar-mobile .linha1,
+  .topbar-mobile .linha2 {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+    margin-bottom: 4px;
+    flex-wrap: wrap;
+    gap: .5rem;
+  }
 
-.topbar-mobile .rank {
-  color: #ffca28;
-  font-weight: bold;
-}
+  .topbar-mobile .rank {
+    color: #ffca28;
+    font-weight: bold;
+  }
 
-.topbar-mobile .status {
-  color: #f44336;
-  font-size: 0.85rem;
-}
+  .topbar-mobile .status {
+    color: #f44336;
+    font-size: 0.85rem;
+  }
 
-.topbar-mobile .debuff {
-  color: #f44336;
-  text-decoration: underline dotted;
-}
+  .topbar-mobile .debuff {
+    color: #f44336;
+    text-decoration: underline dotted;
+  }
 
-.topbar-mobile .buff {
-  color: #4caf50;
-  text-decoration: underline dotted;
-}
+  .topbar-mobile .buff {
+    color: #4caf50;
+    text-decoration: underline dotted;
+  }
 
-.topbar-mobile .linha2 .nivel {
-  font-weight: bold;
-}
+  .topbar-mobile .linha2 .nivel {
+    font-weight: bold;
+  }
 
-/* 🎚️ Estilo da mat-progress-bar visível e funcional */
-.topbar-mobile mat-progress-bar {
-  background: #2a2a2a !important;
-  height: 6px !important;
-  border-radius: 4px;
-  margin-top: 4px;
-  overflow: visible; /* Garante que as barras internas não fiquem cortadas */
-}
+  /* 🎚️ Estilo da mat-progress-bar visível e funcional */
+  .topbar-mobile mat-progress-bar {
+    background: #2a2a2a !important;
+    height: 6px !important;
+    border-radius: 4px;
+    margin-top: 4px;
+    overflow: visible;
+  }
 
-/* Força altura e cor nas barras internas do Material */
-.topbar-mobile ::ng-deep .mat-progress-bar .mdc-linear-progress__bar {
-  height: 6px !important;
-}
+  /* Força altura e cor nas barras internas do Material */
+  .topbar-mobile ::ng-deep .mat-progress-bar .mdc-linear-progress__bar {
+    height: 6px !important;
+  }
 
-.topbar-mobile ::ng-deep .mat-progress-bar .mdc-linear-progress__primary-bar,
-.topbar-mobile ::ng-deep .mat-progress-bar .mdc-linear-progress__secondary-bar {
-  height: 6px !important;
-  background-color: #ff69b4 !important; /* rosa visível */
-  border-radius: 4px;
-}
+  .topbar-mobile ::ng-deep .mat-progress-bar .mdc-linear-progress__primary-bar,
+  .topbar-mobile ::ng-deep .mat-progress-bar .mdc-linear-progress__secondary-bar {
+    height: 6px !important;
+    background-color: #ff69b4 !important; /* rosa visível */
+    border-radius: 4px;
+  }
+
+  /* sheet e botão só fazem sentido no mobile; no desktop o radar fica no card */
+  .attr-mini-btn,
+  .attrs-backdrop,
+  .attrs-sheet { display: initial; }
 }

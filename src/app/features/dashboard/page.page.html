@@ -5,6 +5,20 @@
     <span class="status">
       Debuff
     </span>
+
+    <!-- ▶ MINI HEX (botão para abrir atributos) -->
+    <button class="attr-mini-btn" (click)="toggleAttrsSheet()" aria-label="Ver atributos">
+      <div class="mini-hex">
+        <canvas
+          baseChart
+          [data]="miniChartData"
+          [type]="'radar'"
+          [options]="miniChartOptions">
+        </canvas>
+      </div>
+      <span class="attr-mini-label">Atributos</span>
+    </button>
+    <!-- ◀ MINI HEX -->
   </div>
   <div class="linha2">
     <span class="nivel">Lv. {{ nivelAtual }}</span>
@@ -79,22 +93,11 @@
           <p><strong>XP:</strong> {{ xpAtual }} / {{ xpParaProximoNivel(nivelAtual) }}</p>
           <mat-progress-bar mode="determinate" [value]="progressoXP"></mat-progress-bar>
         </div>
-        <div class="radar-container">
+        <!-- Radar grande: continua no desktop; no mobile usamos o bottom sheet -->
+        <div class="radar-container only-desktop">
           <canvas baseChart [data]="chartData" [type]="'radar'" [options]="chartOptions"></canvas>
         </div>
       </div>
-
-      <!-- <div class="atributos-limpo">
-        <h3>📊 Atributos Detalhados</h3>
-        <ul class="atributos-lista">
-          <li><span class="atributo-nome">Força</span><span class="atributo-valor">65</span></li>
-          <li><span class="atributo-nome">Destreza</span><span class="atributo-valor">59</span></li>
-          <li><span class="atributo-nome">Inteligência</span><span class="atributo-valor">90</span></li>
-          <li><span class="atributo-nome">Constituição</span><span class="atributo-valor">81</span></li>
-          <li><span class="atributo-nome">Carisma</span><span class="atributo-valor">56</span></li>
-          <li><span class="atributo-nome">Sabedoria</span><span class="atributo-valor">55</span></li>
-        </ul>
-      </div> -->
     </mat-card>
 
     <!-- Huntings -->
@@ -408,3 +411,24 @@
   <div class="level-up-banner" *ngIf="mostrarLevelUp">
     🌟 LEVEL UP! Agora você é nível {{ nivelAtual }}!
   </div>
+</div>
+
+<!-- ▶ BOTTOM SHEET de Atributos (mobile) -->
+<div class="attrs-backdrop" *ngIf="showAttrsSheet" (click)="toggleAttrsSheet()"></div>
+<div class="attrs-sheet" [class.open]="showAttrsSheet" aria-live="polite">
+  <div class="attrs-sheet-header">
+    <h3>📊 Atributos</h3>
+    <button class="btn ghost" (click)="toggleAttrsSheet()">Fechar</button>
+  </div>
+  <div class="attrs-sheet-body">
+    <div class="radar-sheet-container">
+      <canvas
+        baseChart
+        [data]="chartData"
+        [type]="'radar'"
+        [options]="chartOptionsMobile">
+      </canvas>
+    </div>
+  </div>
+</div>
+<!-- ◀ BOTTOM SHEET -->

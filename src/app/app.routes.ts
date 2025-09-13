@@ -7,6 +7,8 @@ import { EditWorkout } from './features/treinos/edit-workout';
 import { MissoesPageComponent } from './features/missoes/missoes';
 import { Login } from './auth/login/login'; // ✅ Atenção para o nome do arquivo!
 import { AuthGuard } from './auth/auth.guard';
+import { CodexHomePage } from './features/codex-home/codex-home';
+import { CodexBlockPage } from './features/codex-block/codex-block';
 
 export const routes: Routes = [
   { path: '', redirectTo: 'dashboard', pathMatch: 'full' }, // redireciona raiz para login
@@ -16,5 +18,7 @@ export const routes: Routes = [
   { path: 'dashboard', component: PagePage, /* canActivate: [AuthGuard] */ },
   { path: 'missoes', component: MissoesPageComponent, /* canActivate: [AuthGuard] */ },
   { path: 'xp-teste', component: XpTesteComponent, /* canActivate: [AuthGuard] */ },
+  { path: 'codex', component: CodexHomePage },
+  { path: 'codex/:id', component: CodexBlockPage },
   { path: '**', redirectTo: '' },
 ];

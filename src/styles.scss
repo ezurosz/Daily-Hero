@@ -1,3 +1,6 @@
+@import "quill/dist/quill.core.css";
+@import "quill/dist/quill.snow.css";
+
 body, html {
   background-color: #121212;
   color: #f0f0f0;
@@ -5,3 +8,38 @@ body, html {
   padding: 0;
   font-family: 'Segoe UI', sans-serif;
 }
+
+/* O Quill deve respeitar a largura do container */
+quill-editor, .ql-container, .ql-editor {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Quebra palavras gigantes/URLs e evita expandir a página */
+.ql-editor {
+  white-space: normal;          /* ou pre-wrap se preferir preservar múltiplos espaços */
+  overflow-wrap: anywhere;      /* força quebra mesmo sem espaço */
+  word-break: break-word;
+}
+
+/* Code blocks/trechos de código: permitem scroll horizontal sem alargar o layout */
+.ql-editor pre,
+.ql-editor code,
+.ql-editor .ql-code-block-container {
+  white-space: pre;
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+/* Garante que grid/flex parents não “segurem” largura do filho */
+.codex-home, .codex-block, .card, quill-editor {
+  min-width: 0;
+}
+
+/* (se tiver imagens/embeds no editor) */
+.ql-editor img, .ql-editor video, .ql-editor iframe {
+  max-width: 100%;
+  height: auto;
+}
+

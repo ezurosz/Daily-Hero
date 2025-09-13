@@ -1,0 +1,53 @@
+.codex-home { display: grid; gap: 1.25rem; padding: 1rem; }
+
+.header { display: flex; gap: 1rem; align-items: center; justify-content: space-between;
+  input { min-width: 260px; }
+}
+.actions { display: flex; gap: .5rem; align-items: center; }
+
+.alerts { display: grid; gap: .5rem; }
+.alert { padding: .5rem .75rem; border-radius: .5rem;
+  &.error { background: #3b0b0b; color: #fff; }
+  &.success { background: #0b3b16; color: #d8ffe7; }
+}
+
+.badges { display: flex; gap: 1rem; flex-wrap: wrap; }
+.badge { background: #111; padding: .5rem .75rem; border-radius: .5rem;
+  strong.pending { color: #ffd166; }
+  strong.ok { color: #8bd67a; }
+}
+/* Botões no estilo dos outros componentes */
+.btn {
+  appearance: none; border: 1px solid #2a2a2a; background: #141414; color: #f5f5f5;
+  padding: .6rem .9rem; border-radius: 8px; cursor: pointer; transition: .15s ease;
+}
+.btn:hover { background: #191919; border-color: #2f2f2f; }
+.btn:disabled { opacity: .6; cursor: not-allowed; }
+
+.btn.ghost { background: transparent; }
+.btn.ghost:hover { background: #121212; }
+
+.btn.danger { background: #2a0e0e; border-color: #3a1515; color: #ffdede; }
+.btn.danger:hover { background: #341010; border-color: #4a1c1c; }
+
+.card { background: #0c0c0c; border: 1px solid #1b1b1b; border-radius: 10px; padding: 1rem; }
+.section-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: .5rem;
+  .hint { opacity: .7; font-size: .9rem; }
+}
+.section-actions { display: flex; gap: .5rem; }
+
+.list { display: grid; gap: .5rem; padding: 0; list-style: none; margin: .5rem 0 0; }
+.entry { background: #111; border: 1px solid #1f1f1f; padding: .75rem; border-radius: .5rem; }
+.entry-text { white-space: pre-wrap; }
+.entry-meta { opacity: .7; }
+a { text-decoration: none; color: inherit; }
+.muted { opacity: .6; }
+
+/* Quill: tema escuro (opcional) */
+.ql-toolbar.ql-snow, .ql-container.ql-snow { background: #111; border-color: #222; color: #f5f5f5; }
+.ql-toolbar .ql-picker, .ql-toolbar .ql-picker-options { color: #f5f5f5; background: #111; border-color: #222; }
+.ql-snow .ql-stroke { stroke: #f5f5f5; }
+.ql-snow .ql-fill { fill: #f5f5f5; }
+.ql-editor { color: #f5f5f5; min-height: 240px; background: #0e0e0e; }
+
+

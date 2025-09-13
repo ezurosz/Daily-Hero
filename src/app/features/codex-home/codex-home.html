@@ -1,0 +1,75 @@
+<section class="codex-home">
+  <header class="header">
+    <h2>Codex</h2>
+    <div class="actions">
+      <input [(ngModel)]="newBlockTitle" placeholder="Dê um título (ex.: Dicionário)" />
+      <button class="btn" (click)="createBlock()" [disabled]="busy()">Criar bloco</button>
+    </div>
+  </header>
+
+  <div class="alerts">
+    <div class="alert error" *ngIf="errorMsg()">{{ errorMsg() }}</div>
+    <div class="alert success" *ngIf="successMsg()">{{ successMsg() }}</div>
+  </div>
+
+  <div class="badges">
+    <span class="badge">
+      🧠 Inteligência:
+      <strong [class.ok]="inteligenciaFeitaHoje()" [class.pending]="!inteligenciaFeitaHoje()">
+        {{ inteligenciaFeitaHoje() ? 'Feito' : 'Pendente' }}
+      </strong>
+    </span>
+    <span class="badge">
+      👁️ Consciência:
+      <strong [class.ok]="conscienciaFeitaHoje()" [class.pending]="!conscienciaFeitaHoje()">
+        {{ conscienciaFeitaHoje() ? 'Feito' : 'Pendente' }}
+      </strong>
+    </span>
+  </div>
+
+  <section class="reflexoes card">
+    <div class="section-title">
+      <h3>Reflexões de hoje</h3>
+      <span class="hint">salva automaticamente</span>
+    </div>
+
+    <!-- Editor Quill para a reflexão -->
+    <quill-editor
+      [(ngModel)]="reflexaoHoje"
+      (ngModelChange)="onReflexaoInput()"
+      [styles]="{ height: '280px', width: '100%', 'max-width': '100%' }"
+      placeholder="Escreva sua autorreflexão de hoje..."
+    ></quill-editor>
+  </section>
+
+  <section class="blocks card">
+    <div class="section-title">
+      <h3>Seus blocos</h3>
+      <div class="section-actions">
+        <button class="btn" (click)="reloadBlocks()" [disabled]="busy()">Atualizar</button>
+        
+      </div>
+    </div>
+
+    <ul class="list">
+      <li *ngFor="let b of blocks()">
+        <a [routerLink]="['/codex', b.id]">
+          <div class="entry">
+            <div class="entry-text">
+              <strong>{{ b.data().title }}</strong>
+            </div>
+
+            <!-- Datas em BR via date pipe global -->
+            <small class="entry-meta">
+              <ng-container *ngIf="b.data().contentUpdatedAt">
+                Atualizado em {{ b.data().contentUpdatedAt | date:'short' }}
+              </ng-container>
+            </small>
+          </div>
+        </a>
+      </li>
+    </ul>
+
+    <p *ngIf="blocks().length === 0" class="muted">Nenhum bloco ainda. Crie o primeiro acima.</p>
+  </section>
+</section>
